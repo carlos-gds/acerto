@@ -175,6 +175,7 @@ fun HomeScreen(
                 onBackupClick = { viewModel.openBackupDialog() },
                 onTabSelected = { selectedTabIndex = it }
             )
+        }
     ) { innerPadding ->
         // Fluid Liquid Gradient canvas background
         Box(

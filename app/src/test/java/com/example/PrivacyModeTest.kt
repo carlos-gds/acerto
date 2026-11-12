@@ -57,7 +57,7 @@ class PrivacyModeTest {
                     totalInstallments = 1,
                     year = 2026,
                     month = 5,
-                    amount = 50.0,
+                    amount = 5000L, // R$ 50,00 em centavos
                     isPaid = false
                 )
             )
@@ -129,7 +129,7 @@ class PrivacyModeTest {
             expense = Expense(
                 id = 1L,
                 title = "Geladeira",
-                totalAmount = 2400.0,
+                totalAmount = 240000L, // R$ 2.400,00 em centavos
                 type = ExpenseType.CARD_PURCHASE,
                 totalInstallments = 10,
                 startYear = 2026,
@@ -207,7 +207,7 @@ class PrivacyModeTest {
             totalInstallments = 1,
             year = 2026,
             month = 5,
-            amount = 50.0,
+            amount = 5000L, // R$ 50,00 em centavos
             isPaid = false
         )
 

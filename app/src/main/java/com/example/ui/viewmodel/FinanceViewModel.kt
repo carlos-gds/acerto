@@ -597,7 +597,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 totalInstallments = installments,
                 startYear = startYear,
                 startMonth = startMonth,
-                notes = "LanÃ§amento RÃ¡pido via IA",
+                notes = "Lançamento Rápido via IA",
                 markPastInstallmentsAsPaid = markPastAsPaid,
                 referenceYear = _selectedYear.value,
                 referenceMonth = _selectedMonth.value
@@ -608,7 +608,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // ==========================================
-    // BACKUP & RESTAURAÃ‡ÃƒO DE DADOS
+    // BACKUP & RESTAURAÇÃO DE DADOS
     // ==========================================
 
     private val _isBackupDialogVisible = MutableStateFlow(false)
@@ -644,10 +644,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(jsonString.toByteArray(Charsets.UTF_8))
                     outputStream.flush()
-                } ?: throw IllegalStateException("NÃ£o foi possÃ­vel abrir o arquivo para escrita.")
+                } ?: throw IllegalStateException("Não foi possível abrir o arquivo para escrita.")
 
                 _backupUiState.value = BackupUiState.Success(
-                    "Backup exportado com sucesso! ContÃ©m ${payload.people.size} pessoas, ${payload.expenses.size} despesas e ${payload.installments.size} parcelas."
+                    "Backup exportado com sucesso! Contém ${payload.people.size} pessoas, ${payload.expenses.size} despesas e ${payload.installments.size} parcelas."
                 )
             } catch (e: Exception) {
                 _backupUiState.value = BackupUiState.Error("Falha ao exportar backup: ${e.message ?: "Erro desconhecido"}")
@@ -661,19 +661,19 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val jsonString = contentResolver.openInputStream(uri)?.use { inputStream ->
                     inputStream.bufferedReader(Charsets.UTF_8).readText()
-                } ?: throw IllegalStateException("NÃ£o foi possÃ­vel abrir o arquivo para leitura.")
+                } ?: throw IllegalStateException("Não foi possível abrir o arquivo para leitura.")
 
                 val payload = BackupSerializer.deserialize(jsonString)
                 val validation = backupRepository.validateBackup(payload)
                 if (validation is BackupValidationResult.Invalid) {
-                    _backupUiState.value = BackupUiState.Error("Arquivo invÃ¡lido: ${validation.reason}")
+                    _backupUiState.value = BackupUiState.Error("Arquivo inválido: ${validation.reason}")
                     return@launch
                 }
 
                 val summary = "${payload.people.size} pessoas, ${payload.expenses.size} despesas e ${payload.installments.size} parcelas"
                 _backupUiState.value = BackupUiState.ConfirmingRestore(payload, summary)
             } catch (e: Exception) {
-                _backupUiState.value = BackupUiState.Error("Erro ao ler backup: ${e.message ?: "Arquivo invÃ¡lido"}")
+                _backupUiState.value = BackupUiState.Error("Erro ao ler backup: ${e.message ?: "Arquivo inválido"}")
             }
         }
     }
@@ -691,7 +691,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 )
             } else {
                 _backupUiState.value = BackupUiState.Error(
-                    "Falha ao restaurar banco de dados: ${result.exceptionOrNull()?.message ?: "Erro na transaÃ§Ã£o"}"
+                    "Falha ao restaurar banco de dados: ${result.exceptionOrNull()?.message ?: "Erro na transação"}"
                 )
             }
         }

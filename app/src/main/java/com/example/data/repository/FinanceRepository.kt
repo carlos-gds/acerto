@@ -527,7 +527,7 @@ class FinanceRepository(
     suspend fun populateInitialDataIfEmpty() {
         if (personDao.getCount() > 0) return
 
-        val voId = insertPerson("VÃƒÂ³ Maria", "", "#8B5CF6")
+        val voId = insertPerson("Vó Maria", "", "#8B5CF6")
         val carlosId = insertPerson("Carlos", "", "#3B82F6")
         val anaId = insertPerson("Ana", "", "#EC4899")
 
@@ -535,11 +535,11 @@ class FinanceRepository(
         val currentYear = cal.get(Calendar.YEAR)
         val currentMonth = cal.get(Calendar.MONTH) + 1 // 1-12
 
-        val voPerson = Person(id = voId, name = "VÃƒÂ³ Maria", colorHex = "#8B5CF6")
+        val voPerson = Person(id = voId, name = "Vó Maria", colorHex = "#8B5CF6")
         val carlosPerson = Person(id = carlosId, name = "Carlos", colorHex = "#3B82F6")
         val anaPerson = Person(id = anaId, name = "Ana", colorHex = "#EC4899")
 
-        // 1. Shared Internet bill (R$ 100 split 50/50 between Eu and VÃƒÂ³ Maria for 12 months)
+        // 1. Shared Internet bill (R$ 100 split 50/50 between Eu and Vó Maria for 12 months)
         addSharedBill(
             title = "Internet Fibra",
             totalAmount = 100.0,
@@ -550,18 +550,18 @@ class FinanceRepository(
             startMonth = currentMonth,
             isRecurring = true,
             recurrenceMonthsCount = 12,
-            notes = "Dividido 50% para mim e 50% para minha vÃƒÂ³"
+            notes = "Dividido 50% para mim e 50% para minha vó"
         )
 
         // 2. Card purchase: Carlos bought Nike sneakers for R$ 360 in 6 installments
         addCardPurchase(
-            title = "TÃƒÂªnis Nike",
+            title = "Tênis Nike",
             totalAmount = 360.0,
             person = carlosPerson,
             totalInstallments = 6,
             startYear = currentYear,
             startMonth = currentMonth,
-            notes = "Comprado no cartÃƒÂ£o de crÃƒÂ©dito"
+            notes = "Comprado no cartão de crédito"
         )
 
         // 3. Card purchase: Ana bought Airfryer for R$ 300 in 3 installments
@@ -572,7 +572,7 @@ class FinanceRepository(
             totalInstallments = 3,
             startYear = currentYear,
             startMonth = currentMonth,
-            notes = "Parcelado no cartÃƒÂ£o"
+            notes = "Parcelado no cartão"
         )
     }
 }

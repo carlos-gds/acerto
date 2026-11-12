@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +30,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,7 +70,9 @@ fun PersonDebtCard(
 
     val isAllPaid = group.pendingAmount <= 0.001
 
-    fun shareWhatsAppSummary() {
+    var showPrivacyShareConfirmation by remember { mutableStateOf(false) }
+
+    fun performShare() {
         val shareText = com.example.util.DebtMessageFormatter.format(
             group = group,
             scope = com.example.util.DebtMessageFormatter.DebtScope.SELECTED_MONTH,
@@ -79,6 +83,61 @@ fun PersonDebtCard(
             context = context,
             text = shareText,
             chooserTitle = "Enviar cobrança para ${group.personName}"
+        )
+    }
+
+    // Com o modo privacidade ativo, o texto compartilhado contém valores reais:
+    // pede confirmação antes, igual à tela de detalhes.
+    fun shareWhatsAppSummary() {
+        if (isPrivacyMode) {
+            showPrivacyShareConfirmation = true
+        } else {
+            performShare()
+        }
+    }
+
+    if (showPrivacyShareConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyShareConfirmation = false },
+            title = {
+                Text(
+                    text = "Modo Privacidade Ativo",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = liquid.textPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "O texto a ser compartilhado conterá os valores financeiros reais (não mascarados) das pendências de ${group.personName}. Deseja continuar com o compartilhamento?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = liquid.textSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPrivacyShareConfirmation = false
+                        performShare()
+                    },
+                    modifier = Modifier.testTag("confirm_privacy_share_btn")
+                ) {
+                    Text(
+                        text = "Continuar e Compartilhar",
+                        fontWeight = FontWeight.Bold,
+                        color = liquid.accentPaid
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showPrivacyShareConfirmation = false },
+                    modifier = Modifier.testTag("cancel_privacy_share_btn")
+                ) {
+                    Text(text = "Cancelar", color = liquid.textSecondary)
+                }
+            },
+            containerColor = liquid.cardSurface,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 

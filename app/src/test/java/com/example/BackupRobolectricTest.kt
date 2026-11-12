@@ -54,7 +54,7 @@ class BackupRobolectricTest {
         val expense = Expense(
             id = 10L,
             title = "Sofá",
-            totalAmount = 1200.0,
+            totalAmount = 120000L, // R$ 1.200,00 em centavos
             type = ExpenseType.CARD_PURCHASE,
             totalInstallments = 3,
             startYear = 2026,
@@ -74,7 +74,7 @@ class BackupRobolectricTest {
             totalInstallments = 3,
             year = 2026,
             month = 1,
-            amount = 400.0,
+            amount = 40000L, // R$ 400,00 em centavos
             isPaid = true,
             paidAt = 1705000000000L
         )

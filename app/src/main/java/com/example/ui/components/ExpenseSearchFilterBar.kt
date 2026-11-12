@@ -18,7 +18,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.LocalLiquidGlassColors
 
@@ -104,7 +103,7 @@ fun ExpenseSearchFilterBar(
                         containerColor = liquid.cardSurfaceVariant,
                         labelColor = liquid.textSecondary,
                         selectedContainerColor = liquid.pillPrimaryBg,
-                        selectedLabelColor = Color.White
+                        selectedLabelColor = liquid.pillPrimaryText
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true,

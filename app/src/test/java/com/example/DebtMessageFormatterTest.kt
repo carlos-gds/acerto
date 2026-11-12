@@ -5,6 +5,7 @@ import com.example.data.model.ExpenseType
 import com.example.data.model.InstallmentItem
 import com.example.util.CurrencyFormatter
 import com.example.util.DebtMessageFormatter
+import com.example.util.Money
 import com.example.util.ShareIntentHelper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,7 +46,7 @@ class DebtMessageFormatterTest {
             totalInstallments = totalInstallments,
             year = year,
             month = month,
-            amount = amount,
+            amount = Money.fromReal(amount), // entidade armazena centavos (Long)
             isPaid = isPaid,
             isMyShare = isMyShare
         )
