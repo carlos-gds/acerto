@@ -1,0 +1,29 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.env
+debug.keystore
+
+# Artefatos locais do ambiente Manus e do desenvolvimento
+.manus/
+.work/
+outputs/
+.work_money_scan.txt
+public/
+metadata.json
+
+# Configurações locais do Android Studio
+.idea/
