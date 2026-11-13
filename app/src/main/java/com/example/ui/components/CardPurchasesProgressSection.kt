@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,9 +41,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.key
+import com.example.ui.components.glass.liquidGlass
+import com.example.ui.components.glass.rememberAppearTracker
+import com.example.ui.components.glass.rememberReducedMotion
+import com.example.ui.components.glass.staggeredAppear
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.theme.LocalLiquidElevation
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.CardPurchaseProgress
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
 
 @Composable
 fun CardPurchasesProgressSection(
@@ -54,13 +67,18 @@ fun CardPurchasesProgressSection(
 ) {
     val liquid = LocalLiquidGlassColors.current
     var expenseToDelete by remember { mutableStateOf<CardPurchaseProgress?>(null) }
+    val appearTracker = rememberAppearTracker()
+    val reducedMotion = rememberReducedMotion()
 
     if (expenseToDelete != null) {
         AlertDialog(
+            modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
             onDismissRequest = { expenseToDelete = null },
-            containerColor = liquid.cardSurface,
-            shape = RoundedCornerShape(24.dp),
-            title = { Text("Excluir Compra", color = liquid.textPrimary, fontWeight = FontWeight.Bold) },
+            containerColor = liquidDialogSurface(),
+            shape = LiquidShapes.cardLarge,
+            title = {
+                LiquidDialogBlur()
+                Text("Excluir Compra", color = liquid.textPrimary, fontWeight = FontWeight.Bold) },
             text = { Text("Deseja realmente remover a compra '${expenseToDelete?.expense?.title}' e todas as suas parcelas?", color = liquid.textSecondary) },
             confirmButton = {
                 TextButton(
@@ -93,7 +111,7 @@ fun CardPurchasesProgressSection(
         ) {
             Text(
                 text = "Compras Parceladas no Cartão",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleMedium,
                 color = liquid.textPrimary
             )
             Text(
@@ -104,11 +122,10 @@ fun CardPurchasesProgressSection(
         }
 
         if (purchases.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorder)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .liquidGlass(shape = LiquidShapes.card, elevation = LocalLiquidElevation.current.low)
             ) {
                 Column(
                     modifier = Modifier
@@ -136,12 +153,18 @@ fun CardPurchasesProgressSection(
                 }
             }
         } else {
-            purchases.forEach { item ->
-                CardPurchaseProgressItem(
-                    item = item,
-                    isPrivacyMode = isPrivacyMode,
-                    onDelete = { expenseToDelete = item }
-                )
+            // Entrada progressiva dos cards de compra (uma vez por compra)
+            purchases.forEachIndexed { index, item ->
+                key(item.expense.id) {
+                    CardPurchaseProgressItem(
+                        item = item,
+                        isPrivacyMode = isPrivacyMode,
+                        onDelete = { expenseToDelete = item },
+                        modifier = Modifier.staggeredAppear(
+                            "card_purchase_${item.expense.id}", index, appearTracker, !reducedMotion
+                        )
+                    )
+                }
             }
         }
     }
@@ -157,48 +180,61 @@ fun CardPurchaseProgressItem(
     val liquid = LocalLiquidGlassColors.current
     val isFinished = item.remainingInstallmentsCount <= 0
 
-    Card(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (liquid.isDark) 4.dp else 6.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = if (liquid.isDark) Color.Black.copy(alpha = 0.4f) else Color(0x1F0F172A)
-            )
-            .testTag("card_purchase_progress_${item.expense.id}"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorder)
+            .liquidGlass(shape = LiquidShapes.card, elevation = LocalLiquidElevation.current.medium)
+            .testTag("card_purchase_progress_${item.expense.id}")
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            // Header Row: Title, Person Pill and Delete Button
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row: Icon tile, Title, Person Pill and Delete Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
+                // Bloco de ícone com o acento (Figma: tile 56 dp, raio 10)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(LiquidShapes.iconTile)
+                        .background(
+                            if (isFinished) liquid.accentPaidContainer else liquid.accent.copy(alpha = 0.16f)
+                        )
+                        .border(1.dp, liquid.cardBorderSubtle, LiquidShapes.iconTile),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isFinished) Icons.Default.CheckCircle else Icons.Default.CreditCard,
+                        contentDescription = null,
+                        tint = if (isFinished) liquid.accentPaid else liquid.accent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.size(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = item.expense.title,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleSmall,
                         color = liquid.textPrimary
                     )
 
                     // Person badge
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(liquid.circleButtonBg)
-                            .border(1.dp, liquid.cardBorderSubtle, RoundedCornerShape(50))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                            .clip(LiquidShapes.pill)
+                            .background(liquid.pillSecondaryBg)
+                            .border(1.dp, liquid.cardBorderSubtle, LiquidShapes.pill)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = item.personName,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            style = MaterialTheme.typography.labelSmall,
                             color = liquid.textSecondary
                         )
                     }
@@ -206,7 +242,7 @@ fun CardPurchaseProgressItem(
 
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
@@ -254,16 +290,26 @@ fun CardPurchaseProgressItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Progress bar
-            LinearProgressIndicator(
-                progress = { item.progress },
+            // Barra de progresso de vidro (Figma: trilho translúcido + preenchimento em gradiente)
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = if (isFinished) liquid.accentPaid else liquid.pillPrimaryBg,
-                trackColor = liquid.cardSurfaceVariant
-            )
+                    .height(7.dp)
+                    .clip(LiquidShapes.pill)
+                    .background(liquid.cardSurfaceVariant)
+                    .border(1.dp, liquid.cardBorderSubtle, LiquidShapes.pill)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(item.progress.coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .clip(LiquidShapes.pill)
+                        .then(
+                            if (isFinished) Modifier.background(liquid.accentPaid)
+                            else Modifier.background(liquid.accentGradient)
+                        )
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

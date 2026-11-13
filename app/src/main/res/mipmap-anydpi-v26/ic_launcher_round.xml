@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Acerto: ícone adaptativo (Android 8+), com camada monocromática para Android 13+.
+     Foreground e monocromático com inset de 12,5%: no Figma o laço ocupa 68% da prancheta
+     e ultrapassaria a zona segura de 66 dp (camada de 108 dp); o inset só reduz o asset
+     de forma uniforme, sem alterar o desenho. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_launcher_foreground"
+            android:inset="12.5%" />
+    </foreground>
+    <monochrome>
+        <inset
+            android:drawable="@drawable/ic_launcher_monochrome"
+            android:inset="12.5%" />
+    </monochrome>
 </adaptive-icon>

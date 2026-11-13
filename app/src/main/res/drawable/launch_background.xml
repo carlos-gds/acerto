@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Acerto: abertura no Android 7–11 (fundo da janela antes do app desenhar).
+     Fundo Obsidian do Figma + laço centralizado (foreground oficial do ícone). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#FF1F2335"
+                android:centerColor="#FF090A0E"
+                android:endColor="#FF0D0E17"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item
+        android:width="208dp"
+        android:height="208dp"
+        android:drawable="@mipmap/ic_launcher_foreground"
+        android:gravity="center" />
+</layer-list>

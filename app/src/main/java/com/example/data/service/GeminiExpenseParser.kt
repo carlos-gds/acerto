@@ -25,7 +25,7 @@ class GeminiExpenseParser {
 
     private val candidateModels = listOf(
         "gemini-2.5-flash",
-        "gemini-3.8-flash",
+        "gemini-2.5-flash-lite",
         "gemini-2.0-flash"
     )
 
@@ -79,7 +79,9 @@ class GeminiExpenseParser {
         currentYear: Int,
         currentMonth: Int
     ): QuickExpenseAiResponse? {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+        // A chave vai no cabeçalho, não na URL: URLs costumam parar em logs de
+        // proxies, de erros e do próprio OkHttp.
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
 
         val requestJson = JSONObject().apply {
             val contentsArray = JSONArray().apply {
@@ -137,6 +139,7 @@ class GeminiExpenseParser {
 
         val request = Request.Builder()
             .url(url)
+            .header("x-goog-api-key", apiKey)
             .post(requestBody)
             .build()
 

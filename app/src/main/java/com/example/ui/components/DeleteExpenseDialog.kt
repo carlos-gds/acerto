@@ -31,6 +31,13 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.InstallmentItem
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.CurrencyFormatter
+import androidx.compose.foundation.border
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
 
 @Composable
 fun DeleteExpenseDialog(
@@ -44,9 +51,10 @@ fun DeleteExpenseDialog(
     val isMultiInstallment = item.totalInstallments > 1
 
     AlertDialog(
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(24.dp),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
         icon = {
             Icon(
                 imageVector = if (isMultiInstallment) Icons.Default.WarningAmber else Icons.Default.Delete,
@@ -56,6 +64,7 @@ fun DeleteExpenseDialog(
             )
         },
         title = {
+            LiquidDialogBlur()
             Text(
                 text = if (isMultiInstallment) "Excluir Compra Parcelada" else "Excluir Lançamento",
                 fontSize = 18.sp,

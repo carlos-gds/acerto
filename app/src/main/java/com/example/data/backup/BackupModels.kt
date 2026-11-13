@@ -7,12 +7,13 @@ import com.example.data.model.Person
 import com.example.util.Money
 
 /**
- * Standard versioned schema for local JSON backups in "Quem Me Deve".
+ * Standard versioned schema for local JSON backups in "Acerto" (backups antigos
+ * gravados como "Quem Me Deve" continuam válidos: só é exigido appName não vazio).
  * Uses numeric epoch millisecond timestamps consistently for [createdAt] and [InstallmentBackupDto.paidAt].
  */
 data class BackupPayload(
     val backupVersion: Int = 1,
-    val appName: String = "Quem Me Deve",
+    val appName: String = "Acerto",
     val createdAt: Long = System.currentTimeMillis(),
     val people: List<PersonBackupDto> = emptyList(),
     val expenses: List<ExpenseBackupDto> = emptyList(),
@@ -24,14 +25,17 @@ data class PersonBackupDto(
     val name: String,
     val phone: String = "",
     val colorHex: String = "#10B981",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Avatar (NEUTRAL, MALE, FEMALE). Campo opcional: backups antigos não têm e viram NEUTRAL. */
+    val avatar: String = com.example.data.model.PersonAvatar.NEUTRAL.name
 ) {
     fun toEntity(): Person = Person(
         id = id,
         name = name,
         phone = phone,
         colorHex = colorHex,
-        createdAt = createdAt
+        createdAt = createdAt,
+        avatar = com.example.data.model.PersonAvatar.from(avatar).name
     )
 
     companion object {
@@ -40,7 +44,8 @@ data class PersonBackupDto(
             name = person.name,
             phone = person.phone,
             colorHex = person.colorHex,
-            createdAt = person.createdAt
+            createdAt = person.createdAt,
+            avatar = person.avatar
         )
     }
 }

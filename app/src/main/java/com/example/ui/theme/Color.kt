@@ -7,43 +7,66 @@ import androidx.compose.ui.graphics.Color
 
 // ==========================================
 // LIQUID GLASS DESIGN SYSTEM TOKENS
+// Referência: protótipo Figma "Liquid Color Glass UI" (tema Obsidian).
+//
+// Sem blur real (Android 7+ e sem biblioteca): o "vidro" é simulado com
+// superfícies quase opacas já compostas sobre o fundo escuro, um brilho
+// em gradiente no topo e uma borda especular. Superfícies usadas como
+// fundo de diálogo precisam continuar legíveis sobre o scrim, por isso
+// não são translúcidas como no Figma (lá o desfoque garante a leitura).
 // ==========================================
 
-// --- Liquid Light Palette (Ref. image: white/clean frosted glass fintech) ---
-val LiquidLightBackground = Color(0xFFF1F3F6)
-val LiquidLightBackgroundEnd = Color(0xFFE4E8EE)
-val LiquidLightCardSurface = Color(0xFAFDFDFE)
-val LiquidLightCardSurfaceVariant = Color(0xF0EDF1F7)
-val LiquidLightBorder = Color(0xFFFFFFFF) // Crisp white specular border
-val LiquidLightBorderSubtle = Color(0x1F0F172A)
+// --- Acento "Liquid Color" (Figma: #627AF0, gradiente #506BE6 -> #6B82F5) ---
+val LiquidAccent = Color(0xFF627AF0)
+val LiquidAccentStrong = Color(0xFF506BE6)
+val LiquidAccentEnd = Color(0xFF6B82F5)
+val LiquidAccentSoft = Color(0xFFB4C0FD)
+val LiquidAccentBrand = Color(0xFF8485FF)
+
+// --- Destaque quente (Figma: botão "Clean Junk" #F42525 -> #FF7D45) ---
+val LiquidDangerStart = Color(0xFFF42525)
+val LiquidDangerEnd = Color(0xFFFF7D45)
+
+// --- Liquid Dark / Obsidian ---
+val LiquidDarkBackground = Color(0xFF0E0E10)
+val LiquidDarkBackgroundEnd = Color(0xFF0E0E0E)
+/** Brilho azulado do topo (Figma: rgba(90,115,235,0.10) sobre o fundo). */
+val LiquidDarkBackgroundGlow = Color(0xFF16182A)
+/** Vidro de card: branco 8% translúcido (Figma 4%–12%); o fundo obsidian aparece por trás. */
+val LiquidDarkCardSurface = Color(0x14FFFFFF)
+/** Vidro de campo/linha: branco 10% translúcido. */
+val LiquidDarkCardSurfaceVariant = Color(0x1AFFFFFF)
+val LiquidDarkBorder = Color(0x2EFFFFFF) // especular, branco 18%
+val LiquidDarkBorderSubtle = Color(0x14FFFFFF) // branco 8%
+
+val LiquidDarkTextPrimary = Color(0xFFF5F6FA)
+val LiquidDarkTextSecondary = Color(0xFFB8BAC2) // branco ~70%
+val LiquidDarkTextMuted = Color(0xFF8E909A) // branco ~50%, >= 4,5:1
+
+val LiquidDarkPillDark = LiquidAccentStrong // botão principal (Figma "Create")
+val LiquidDarkPillDarkText = Color(0xFFFFFFFF)
+val LiquidDarkPillGlass = Color(0x1FFFFFFF) // pílula de vidro, branco 12%
+val LiquidDarkPillGlassText = LiquidDarkTextPrimary
+val LiquidDarkCircleBtn = Color(0x1FFFFFFF)
+
+// --- Liquid Light (derivado: o Figma só define o tema escuro) ---
+val LiquidLightBackground = Color(0xFFF2F3F8)
+val LiquidLightBackgroundEnd = Color(0xFFE7EAF2)
+val LiquidLightBackgroundGlow = Color(0xFFE3E7FA)
+val LiquidLightCardSurface = Color(0xB3FFFFFF) // branco fosco 70%
+val LiquidLightCardSurfaceVariant = Color(0x99FFFFFF) // branco fosco 60%
+val LiquidLightBorder = Color(0x1F0F172A) // antes branco puro (invisível)
+val LiquidLightBorderSubtle = Color(0x140F172A)
 
 val LiquidLightTextPrimary = Color(0xFF0F172A)
 val LiquidLightTextSecondary = Color(0xFF475569)
-val LiquidLightTextMuted = Color(0xFF94A3B8)
+val LiquidLightTextMuted = Color(0xFF5B6576) // antes #94A3B8 (abaixo de 4,5:1)
 
-val LiquidLightPillDark = Color(0xFF18181B)
+val LiquidLightPillDark = Color(0xFF4F67E0)
 val LiquidLightPillDarkText = Color(0xFFFFFFFF)
-val LiquidLightPillGlass = Color(0xFFFFFFFF)
-val LiquidLightPillGlassText = Color(0xFF18181B)
-val LiquidLightCircleBtn = Color(0xFFFFFFFF)
-
-// --- Liquid Dark Palette (Ref. image: deep obsidian frosted glass fintech) ---
-val LiquidDarkBackground = Color(0xFF0B0B0E)
-val LiquidDarkBackgroundEnd = Color(0xFF14141A)
-val LiquidDarkCardSurface = Color(0xE6181820)
-val LiquidDarkCardSurfaceVariant = Color(0xD9242430)
-val LiquidDarkBorder = Color(0x38FFFFFF) // Luminous glass specular border
-val LiquidDarkBorderSubtle = Color(0x1AFFFFFF)
-
-val LiquidDarkTextPrimary = Color(0xFFF8FAFC)
-val LiquidDarkTextSecondary = Color(0xFF94A3B8)
-val LiquidDarkTextMuted = Color(0xFF64748B)
-
-val LiquidDarkPillDark = Color(0xFFFFFFFF)
-val LiquidDarkPillDarkText = Color(0xFF0B0B0E)
-val LiquidDarkPillGlass = Color(0x402C2C38)
-val LiquidDarkPillGlassText = Color(0xFFF8FAFC)
-val LiquidDarkCircleBtn = Color(0x38282834)
+val LiquidLightPillGlass = Color(0xBFFFFFFF)
+val LiquidLightPillGlassText = LiquidLightTextPrimary
+val LiquidLightCircleBtn = Color(0xCCFFFFFF)
 
 // --- Accents (Shared / Status) ---
 val LiquidAccentEmerald = Color(0xFF10B981)
@@ -76,14 +99,39 @@ data class LiquidGlassColors(
     val accentPaidContainer: Color,
     val accentPending: Color,
     val accentPendingContainer: Color,
-    val eyeActive: Color
+    val eyeActive: Color,
+    // --- Tokens Liquid Glass (Figma) ---
+    /** Acento para ícones, links e destaques sobre o fundo. */
+    val accent: Color,
+    /** Gradiente do botão principal (Figma "Create"). */
+    val accentGradient: Brush,
+    /** Gradiente do card de destaque (Figma "Available Space"). */
+    val heroGradient: Brush,
+    /** Texto sobre o card de destaque. */
+    val heroText: Color,
+    /** Borda especular: mais clara no canto superior esquerdo. */
+    val specularBorder: Brush,
+    /** Brilho interno do vidro, do topo para baixo. */
+    val glassHighlight: Brush,
+    /** Gradiente quente de alerta (Figma "Clean Junk"). */
+    val dangerGradient: Brush,
+    /** Fade inferior atrás de barras flutuantes. */
+    val bottomFade: Brush,
+    val sheetSurface: Color,
+    val scrim: Color,
+    val shadowAmbient: Color,
+    val shadowSpot: Color
 )
 
 val LiquidLightTokens = LiquidGlassColors(
     isDark = false,
     background = LiquidLightBackground,
-    backgroundGradient = Brush.verticalGradient(listOf(LiquidLightBackground, LiquidLightBackgroundEnd)),
-    headerSurface = Color(0xF2FFFFFF),
+    backgroundGradient = Brush.verticalGradient(
+        0f to LiquidLightBackgroundGlow,
+        0.25f to LiquidLightBackground,
+        1f to LiquidLightBackgroundEnd
+    ),
+    headerSurface = Color(0xB3FFFFFF),
     cardSurface = LiquidLightCardSurface,
     cardSurfaceVariant = LiquidLightCardSurfaceVariant,
     cardBorder = LiquidLightBorder,
@@ -97,18 +145,36 @@ val LiquidLightTokens = LiquidGlassColors(
     pillSecondaryText = LiquidLightPillGlassText,
     circleButtonBg = LiquidLightCircleBtn,
     circleButtonBorder = LiquidLightBorder,
-    accentPaid = Color(0xFF059669),
+    accentPaid = Color(0xFF047857),
     accentPaidContainer = Color(0xFFD1FAE5),
-    accentPending = Color(0xFFD97706),
+    accentPending = Color(0xFFB45309),
     accentPendingContainer = Color(0xFFFEF3C7),
-    eyeActive = LiquidLightTextSecondary
+    eyeActive = LiquidLightTextSecondary,
+    accent = Color(0xFF4F67E0),
+    accentGradient = Brush.linearGradient(listOf(LiquidAccentStrong, LiquidAccentEnd)),
+    heroGradient = Brush.verticalGradient(listOf(Color(0xF26075E0), Color(0xF2404FB0))),
+    heroText = Color(0xFFFFFFFF),
+    specularBorder = Brush.linearGradient(
+        listOf(Color(0xCCFFFFFF), Color(0x1A0F172A), Color(0x260F172A))
+    ),
+    glassHighlight = Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x00FFFFFF))),
+    dangerGradient = Brush.linearGradient(listOf(LiquidDangerStart, LiquidDangerEnd)),
+    bottomFade = Brush.verticalGradient(listOf(Color(0x00E7EAF2), LiquidLightBackgroundEnd)),
+    sheetSurface = Color(0xFFF7F8FC),
+    scrim = Color(0x660F172A),
+    shadowAmbient = Color(0x1A0F172A),
+    shadowSpot = Color(0x1F0F172A)
 )
 
 val LiquidDarkTokens = LiquidGlassColors(
     isDark = true,
     background = LiquidDarkBackground,
-    backgroundGradient = Brush.verticalGradient(listOf(LiquidDarkBackground, LiquidDarkBackgroundEnd)),
-    headerSurface = Color(0xF2121218),
+    backgroundGradient = Brush.verticalGradient(
+        0f to LiquidDarkBackgroundGlow,
+        0.22f to LiquidDarkBackground,
+        1f to LiquidDarkBackgroundEnd
+    ),
+    headerSurface = Color(0x1AFFFFFF),
     cardSurface = LiquidDarkCardSurface,
     cardSurfaceVariant = LiquidDarkCardSurfaceVariant,
     cardBorder = LiquidDarkBorder,
@@ -123,10 +189,27 @@ val LiquidDarkTokens = LiquidGlassColors(
     circleButtonBg = LiquidDarkCircleBtn,
     circleButtonBorder = LiquidDarkBorder,
     accentPaid = Color(0xFF34D399),
-    accentPaidContainer = Color(0x2610B981),
+    accentPaidContainer = Color(0x2634D399),
     accentPending = Color(0xFFFBBF24),
-    accentPendingContainer = Color(0x26F59E0B),
-    eyeActive = LiquidDarkTextSecondary
+    accentPendingContainer = Color(0x26FBBF24),
+    eyeActive = LiquidDarkTextSecondary,
+    accent = LiquidAccentBrand,
+    accentGradient = Brush.linearGradient(listOf(LiquidAccentStrong, LiquidAccentEnd)),
+    // Figma: acento de 85% (topo) a 3% (base) sobre o fundo obsidian, já composto.
+    heroGradient = Brush.verticalGradient(
+        listOf(Color(0xD9627AF0), Color(0x66506BE6), Color(0x14627AF0))
+    ),
+    heroText = Color(0xFFFFFFFF),
+    specularBorder = Brush.linearGradient(
+        listOf(Color(0x66FFFFFF), Color(0x14FFFFFF), Color(0x33FFFFFF))
+    ),
+    glassHighlight = Brush.verticalGradient(listOf(Color(0x1FFFFFFF), Color(0x05FFFFFF), Color(0x00FFFFFF))),
+    dangerGradient = Brush.linearGradient(listOf(LiquidDangerStart, LiquidDangerEnd)),
+    bottomFade = Brush.verticalGradient(listOf(Color(0x000E0E0E), LiquidDarkBackgroundEnd)),
+    sheetSurface = Color(0xFA161619),
+    scrim = Color(0x8C000000),
+    shadowAmbient = Color(0x1A000000),
+    shadowSpot = Color(0x66000000)
 )
 
 val LocalLiquidGlassColors = staticCompositionLocalOf { LiquidDarkTokens }
@@ -162,5 +245,3 @@ val EmeraldLight get() = SophisticatedPrimary
 val EmeraldContainer get() = SophisticatedPrimaryContainer
 val OnEmeraldContainer get() = SophisticatedOnPrimaryContainer
 val AmberPending get() = SophisticatedPending
-
-

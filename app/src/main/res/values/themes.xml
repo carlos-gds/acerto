@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar" />
+    <!-- Fundo Obsidian do Liquid Glass (mesmo valor de LiquidDarkBackground). -->
+    <color name="liquid_window_background">#FF0E0E10</color>
+    <!-- Obsidian profundo do guia do ícone no Figma. -->
+    <color name="acerto_splash_background">#FF090A0E</color>
+
+    <!--
+        Android 7–11: a janela abre com o fundo Obsidian e o laço do Acerto
+        (sem o cinza padrão). As barras ficam transparentes; o estilo dos ícones
+        é definido em MainActivity conforme o tema escolhido no app.
+    -->
+    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

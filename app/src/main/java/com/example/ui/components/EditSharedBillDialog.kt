@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.util.MoneyInput
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,6 +67,14 @@ import com.example.data.model.Person
 import com.example.util.Money
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
+import com.example.ui.components.glass.shakeOnChange
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -127,25 +136,27 @@ fun EditSharedBillDialog(
         }
     }
 
-    val numericTotal = totalAmountText.replace(",", ".").toDoubleOrNull() ?: 0.0
+    val numericTotal = MoneyInput.parse(totalAmountText) ?: 0.0
 
     val myShareAmount: Double = if (isFiftyFifty) {
         numericTotal / 2.0
     } else {
-        customMyShareText.replace(",", ".").toDoubleOrNull() ?: 0.0
+        MoneyInput.parse(customMyShareText) ?: 0.0
     }
 
     val otherShareAmount: Double = if (isFiftyFifty) {
         numericTotal / 2.0
     } else {
-        customOtherShareText.replace(",", ".").toDoubleOrNull() ?: 0.0
+        MoneyInput.parse(customOtherShareText) ?: 0.0
     }
 
     AlertDialog(
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(24.dp),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
         title = {
+            LiquidDialogBlur()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -154,7 +165,7 @@ fun EditSharedBillDialog(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(liquid.pillPrimaryBg),
+                        .background(liquid.accentGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -191,17 +202,12 @@ fun EditSharedBillDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Nome da Conta") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(title)
                         .fillMaxWidth()
                         .testTag("edit_shared_bill_title_input"),
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Person selector
@@ -256,7 +262,7 @@ fun EditSharedBillDialog(
                     value = totalAmountText,
                     onValueChange = { input ->
                         totalAmountText = input
-                        val newTot = input.replace(",", ".").toDoubleOrNull() ?: 0.0
+                        val newTot = MoneyInput.parse(input) ?: 0.0
                         if (isFiftyFifty) {
                             val half = newTot / 2.0
                             customMyShareText = String.format(java.util.Locale.US, "%.2f", half).replace(".", ",")
@@ -264,17 +270,12 @@ fun EditSharedBillDialog(
                         }
                     },
                     label = { Text("Valor Total da Conta (R$)") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(totalAmountText)
                         .fillMaxWidth()
                         .testTag("edit_shared_bill_total_input"),
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Split Mode Chips
@@ -299,10 +300,7 @@ fun EditSharedBillDialog(
                             },
                             label = { Text("50% / 50% (Meio a meio)") },
                             shape = RoundedCornerShape(50),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = liquid.pillPrimaryBg,
-                                selectedLabelColor = liquid.pillPrimaryText
-                            ),
+                            colors = liquidFilterChipColors(),
                             modifier = Modifier.testTag("split_mode_50_50")
                         )
 
@@ -313,10 +311,7 @@ fun EditSharedBillDialog(
                             },
                             label = { Text("Personalizado") },
                             shape = RoundedCornerShape(50),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = liquid.pillPrimaryBg,
-                                selectedLabelColor = liquid.pillPrimaryText
-                            ),
+                            colors = liquidFilterChipColors(),
                             modifier = Modifier.testTag("split_mode_custom")
                         )
                     }
@@ -395,24 +390,19 @@ fun EditSharedBillDialog(
                                 value = customMyShareText,
                                 onValueChange = { text ->
                                     customMyShareText = text
-                                    val myVal = text.replace(",", ".").toDoubleOrNull() ?: 0.0
+                                    val myVal = MoneyInput.parse(text) ?: 0.0
                                     if (numericTotal > 0 && myVal <= numericTotal) {
                                         val otherVal = numericTotal - myVal
                                         customOtherShareText = String.format(java.util.Locale.US, "%.2f", otherVal).replace(".", ",")
                                     }
                                 },
                                 label = { Text("Minha Parte (R$)") },
-                                modifier = Modifier
+                                modifier = Modifier.liquidFieldMotion(customMyShareText)
                                     .fillMaxWidth()
                                     .testTag("edit_my_share_amount_input"),
                                 shape = RoundedCornerShape(12.dp),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = liquid.cardSurface,
-                                    unfocusedContainerColor = liquid.cardSurface,
-                                    focusedTextColor = liquid.textPrimary,
-                                    unfocusedTextColor = liquid.textPrimary
-                                )
+                                colors = liquidTextFieldColors()
                             )
 
                             // Other Share Input
@@ -420,24 +410,19 @@ fun EditSharedBillDialog(
                                 value = customOtherShareText,
                                 onValueChange = { text ->
                                     customOtherShareText = text
-                                    val otherVal = text.replace(",", ".").toDoubleOrNull() ?: 0.0
+                                    val otherVal = MoneyInput.parse(text) ?: 0.0
                                     if (numericTotal > 0 && otherVal <= numericTotal) {
                                         val myVal = numericTotal - otherVal
                                         customMyShareText = String.format(java.util.Locale.US, "%.2f", myVal).replace(".", ",")
                                     }
                                 },
                                 label = { Text("Parte de ${selectedPerson?.name ?: "Outro"} (R$)") },
-                                modifier = Modifier
+                                modifier = Modifier.liquidFieldMotion(customOtherShareText)
                                     .fillMaxWidth()
                                     .testTag("edit_other_share_amount_input"),
                                 shape = RoundedCornerShape(12.dp),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = liquid.cardSurface,
-                                    unfocusedContainerColor = liquid.cardSurface,
-                                    focusedTextColor = liquid.textPrimary,
-                                    unfocusedTextColor = liquid.textPrimary
-                                )
+                                colors = liquidTextFieldColors()
                             )
                         }
 
@@ -581,6 +566,7 @@ fun EditSharedBillDialog(
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage!!,
+                        modifier = Modifier.shakeOnChange(errorMessage),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )

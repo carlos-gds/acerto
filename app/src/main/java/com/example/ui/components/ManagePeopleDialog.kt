@@ -1,5 +1,14 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
+import com.example.data.model.PersonAvatar
+import com.example.ui.components.glass.GlassPill
+import com.example.util.PhoneFormat
+import com.example.util.PhoneVisualTransformation
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,6 +61,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Person
 import com.example.ui.theme.LocalLiquidGlassColors
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
+import com.example.ui.components.glass.shakeOnChange
 
 val AVAILABLE_PERSON_COLORS = listOf(
     "#10B981", // Emerald
@@ -68,8 +85,10 @@ val AVAILABLE_PERSON_COLORS = listOf(
 fun ManagePeopleDialog(
     people: List<Person>,
     onDismiss: () -> Unit,
-    onAddPerson: (name: String, phone: String, colorHex: String) -> Unit,
-    onDeletePerson: (Person) -> Unit
+    onAddPerson: (name: String, phone: String, colorHex: String, avatar: String) -> Unit,
+    onDeletePerson: (Person) -> Unit,
+    /** Atualiza a pessoa (usado para trocar o avatar de quem já está cadastrado). */
+    onUpdatePerson: (Person) -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
 
@@ -77,17 +96,16 @@ fun ManagePeopleDialog(
     var newName by remember { mutableStateOf("") }
     var newPhone by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(AVAILABLE_PERSON_COLORS.first()) }
+    var selectedAvatar by remember { mutableStateOf(PersonAvatar.NEUTRAL) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(26.dp),
-        modifier = Modifier.border(
-            BorderStroke(1.dp, liquid.cardBorderSubtle),
-            shape = RoundedCornerShape(26.dp)
-        ),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         title = {
+            LiquidDialogBlur()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -96,7 +114,7 @@ fun ManagePeopleDialog(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(liquid.pillPrimaryBg),
+                        .background(liquid.accentGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -145,36 +163,57 @@ fun ManagePeopleDialog(
                         },
                         label = { Text("Nome *", color = liquid.textSecondary) },
                         placeholder = { Text("Ex: Carlos, Vó Maria", color = liquid.textMuted) },
-                        modifier = Modifier
+                        modifier = Modifier.liquidFieldMotion(newName)
                             .fillMaxWidth()
                             .testTag("input_new_person_name"),
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = liquid.textPrimary,
-                            unfocusedTextColor = liquid.textPrimary,
-                            focusedBorderColor = liquid.pillPrimaryBg,
-                            unfocusedBorderColor = liquid.cardBorderSubtle,
-                            cursorColor = liquid.pillPrimaryBg
-                        ),
+                        colors = liquidTextFieldColors(),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                     )
 
                     OutlinedTextField(
                         value = newPhone,
-                        onValueChange = { newPhone = it },
+                        // Aceita colar em qualquer formato; guarda só os dígitos (DDD + número)
+                        onValueChange = { newPhone = it.filter { c -> c.isDigit() }.take(11) },
                         label = { Text("WhatsApp (opcional)", color = liquid.textSecondary) },
-                        placeholder = { Text("Ex: 11999998888", color = liquid.textMuted) },
-                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Ex: (11) 99999-8888", color = liquid.textMuted) },
+                        visualTransformation = PhoneVisualTransformation,
+                        modifier = Modifier.liquidFieldMotion(newPhone).fillMaxWidth(),
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = liquid.textPrimary,
-                            unfocusedTextColor = liquid.textPrimary,
-                            focusedBorderColor = liquid.pillPrimaryBg,
-                            unfocusedBorderColor = liquid.cardBorderSubtle,
-                            cursorColor = liquid.pillPrimaryBg
-                        ),
+                        colors = liquidTextFieldColors(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                     )
+
+                    // Avatar: prévia ao vivo + opções neutro / masculino / feminino
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        PersonAvatarBadge(
+                            name = newName.ifBlank { "?" },
+                            colorHex = selectedColor,
+                            avatar = selectedAvatar.name,
+                            size = 52.dp,
+                            modifier = Modifier.testTag("new_person_avatar_preview")
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            PersonAvatar.entries.forEach { option ->
+                                GlassPill(
+                                    selected = selectedAvatar == option,
+                                    onClick = { selectedAvatar = option },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                                    modifier = Modifier.testTag("avatar_option_${option.name.lowercase()}")
+                                ) {
+                                    Icon(
+                                        imageVector = option.icon() ?: PersonFallbackIcon,
+                                        contentDescription = option.label(),
+                                        tint = if (selectedAvatar == option) liquid.pillPrimaryText else liquid.textSecondary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     // Color picker row
                     Column {
@@ -192,9 +231,18 @@ fun ManagePeopleDialog(
                                 val color = Color(android.graphics.Color.parseColor(hex))
                                 val isSelected = selectedColor == hex
 
+                                val swatchScale by animateFloatAsState(
+                                    targetValue = if (isSelected) 1.15f else 1f,
+                                    animationSpec = spring(dampingRatio = 0.45f, stiffness = 500f),
+                                    label = "swatch_scale"
+                                )
                                 Box(
                                     modifier = Modifier
                                         .size(32.dp)
+                                        .graphicsLayer {
+                                            scaleX = swatchScale
+                                            scaleY = swatchScale
+                                        }
                                         .clip(CircleShape)
                                         .background(color)
                                         .clickable { selectedColor = hex }
@@ -211,6 +259,7 @@ fun ManagePeopleDialog(
                     if (errorText != null) {
                         Text(
                             text = errorText!!,
+                            modifier = Modifier.shakeOnChange(errorText),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -231,7 +280,8 @@ fun ManagePeopleDialog(
                                     errorText = "Informe o nome da pessoa."
                                     return@Button
                                 }
-                                onAddPerson(newName.trim(), newPhone.trim(), selectedColor)
+                                onAddPerson(newName.trim(), newPhone.trim(), selectedColor, selectedAvatar.name)
+                                selectedAvatar = PersonAvatar.NEUTRAL
                                 newName = ""
                                 newPhone = ""
                                 isAddingNew = false
@@ -305,19 +355,21 @@ fun ManagePeopleDialog(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Box(
+                                    // Toque no avatar alterna neutro -> masculino -> feminino
+                                    val current = PersonAvatar.from(person.avatar)
+                                    val next = PersonAvatar.entries[(current.ordinal + 1) % PersonAvatar.entries.size]
+                                    PersonAvatarBadge(
+                                        name = person.name,
+                                        colorHex = person.colorHex,
+                                        avatar = person.avatar,
+                                        size = 40.dp,
                                         modifier = Modifier
-                                            .size(36.dp)
                                             .clip(CircleShape)
-                                            .background(personColor),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = person.name.firstOrNull()?.uppercase() ?: "",
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = Color.White
-                                        )
-                                    }
+                                            .clickable(onClickLabel = "Trocar avatar para ${next.label()}") {
+                                                onUpdatePerson(person.copy(avatar = next.name))
+                                            }
+                                            .testTag("person_avatar_${person.id}")
+                                    )
                                     Column {
                                         Text(
                                             text = person.name,
@@ -326,7 +378,7 @@ fun ManagePeopleDialog(
                                         )
                                         if (person.phone.isNotBlank()) {
                                             Text(
-                                                text = person.phone,
+                                                text = PhoneFormat.format(person.phone),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = liquid.textSecondary
                                             )

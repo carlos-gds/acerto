@@ -9,6 +9,9 @@ import com.example.ui.viewmodel.MonthlySummary
 
 /**
  * Section combining the month selector and the hero summary card for the active billing cycle.
+ *
+ * Usa o seletor de mês compacto (pílula "‹ mês ›"). Na Home, a privacidade fica no
+ * cabeçalho e as ações de adicionar ficam no botão +, por isso o card pode omiti-las.
  */
 @Composable
 fun MonthlySummarySection(
@@ -24,18 +27,22 @@ fun MonthlySummarySection(
     onAddSharedBill: () -> Unit,
     onOptionsClick: () -> Unit,
     onOthersDebtClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showPrivacyToggle: Boolean = true,
+    showQuickActions: Boolean = true,
+    pendingMonthHint: Boolean = false
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        MonthSelector(
+        CompactMonthSelector(
             selectedYear = selectedYear,
             selectedMonth = selectedMonth,
             onMonthSelected = onMonthSelected,
             onPreviousMonth = onPreviousMonth,
-            onNextMonth = onNextMonth
+            onNextMonth = onNextMonth,
+            pendingHint = pendingMonthHint
         )
 
         SummaryCard(
@@ -45,7 +52,9 @@ fun MonthlySummarySection(
             onAddCardPurchase = onAddCardPurchase,
             onAddSharedBill = onAddSharedBill,
             onOptionsClick = onOptionsClick,
-            onOthersDebtClick = onOthersDebtClick
+            onOthersDebtClick = onOthersDebtClick,
+            showPrivacyToggle = showPrivacyToggle,
+            showQuickActions = showQuickActions
         )
     }
 }

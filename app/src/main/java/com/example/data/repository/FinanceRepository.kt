@@ -10,14 +10,26 @@ import com.example.data.model.InstallmentItem
 import com.example.data.model.MY_PERSON_ID
 import com.example.data.model.Person
 import com.example.util.Money
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
 
 class FinanceRepository(
     private val personDao: PersonDao,
     private val expenseDao: ExpenseDao,
-    private val installmentDao: InstallmentDao
+    private val installmentDao: InstallmentDao,
+    /** Banco usado para agrupar gravações em transação; null (testes) executa direto. */
+    private val database: RoomDatabase? = null
 ) {
+    /**
+     * Executa [block] numa transação do Room: operações com vários passos
+     * (excluir despesa e parcelas, editar compra, excluir pessoa...) gravam tudo
+     * ou nada, sem deixar dados órfãos se o app fechar no meio.
+     */
+    private suspend fun <R> tx(block: suspend () -> R): R =
+        if (database != null) database.withTransaction(block) else block()
+
     val allPeople: Flow<List<Person>> = personDao.getAllPeople()
     val allExpenses: Flow<List<Expense>> = expenseDao.getAllExpenses()
 
@@ -33,8 +45,13 @@ class FinanceRepository(
         return installmentDao.getAllInstallments()
     }
 
-    suspend fun insertPerson(name: String, phone: String = "", colorHex: String = "#10B981"): Long {
-        val person = Person(name = name.trim(), phone = phone.trim(), colorHex = colorHex)
+    suspend fun insertPerson(
+        name: String,
+        phone: String = "",
+        colorHex: String = "#10B981",
+        avatar: String = com.example.data.model.PersonAvatar.NEUTRAL.name
+    ): Long {
+        val person = Person(name = name.trim(), phone = phone.trim(), colorHex = colorHex, avatar = avatar)
         return personDao.insertPerson(person)
     }
 
@@ -55,12 +72,12 @@ class FinanceRepository(
         return newPerson.copy(id = id)
     }
 
-    suspend fun updatePerson(person: Person) {
+    suspend fun updatePerson(person: Person): Unit = tx {
         personDao.updatePerson(person)
         installmentDao.updatePersonName(person.id, person.name)
     }
 
-    suspend fun deletePerson(person: Person) {
+    suspend fun deletePerson(person: Person): Unit = tx {
         installmentDao.deleteByPersonId(person.id)
         personDao.deletePerson(person)
     }
@@ -76,7 +93,7 @@ class FinanceRepository(
         markPastInstallmentsAsPaid: Boolean = false,
         referenceYear: Int = Calendar.getInstance().get(Calendar.YEAR),
         referenceMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1
-    ): Long {
+    ): Long = tx {
         val expense = Expense(
             title = title.trim(),
             totalAmount = Money.fromReal(totalAmount),
@@ -126,7 +143,7 @@ class FinanceRepository(
             )
         }
         installmentDao.insertInstallments(items)
-        return expenseId
+        return@tx expenseId
     }
 
     suspend fun addSharedBill(
@@ -140,7 +157,7 @@ class FinanceRepository(
         isRecurring: Boolean,
         recurrenceMonthsCount: Int = 12,
         notes: String = ""
-    ): Long {
+    ): Long = tx {
         val participants = mutableListOf<BillParticipantShare>()
         if (myShareAmount > 0.0) {
             participants.add(
@@ -162,7 +179,7 @@ class FinanceRepository(
                 )
             )
         }
-        return addSharedBillWithParticipants(
+        return@tx addSharedBillWithParticipants(
             title = title,
             totalAmount = totalAmount,
             participants = participants,
@@ -183,7 +200,7 @@ class FinanceRepository(
         isRecurring: Boolean,
         recurrenceMonthsCount: Int = 12,
         notes: String = ""
-    ): Long {
+    ): Long = tx {
         val totalMonths = if (isRecurring) recurrenceMonthsCount else 1
         val firstOtherPersonId = participants.firstOrNull { !it.isMyShare }?.personId ?: MY_PERSON_ID
         val myShareAmount = participants.firstOrNull { it.isMyShare }?.amount ?: 0.0
@@ -232,7 +249,7 @@ class FinanceRepository(
             }
         }
         installmentDao.insertInstallments(items)
-        return expenseId
+        return@tx expenseId
     }
 
     suspend fun setInstallmentPaid(id: Long, isPaid: Boolean) {
@@ -242,13 +259,13 @@ class FinanceRepository(
         installmentDao.updateInstallment(updated)
     }
 
-    suspend fun deleteExpense(expenseId: Long) {
+    suspend fun deleteExpense(expenseId: Long): Unit = tx {
         installmentDao.deleteByExpenseId(expenseId)
         expenseDao.deleteExpenseById(expenseId)
     }
 
-    suspend fun deleteSingleInstallment(installmentId: Long) {
-        val item = installmentDao.getInstallmentById(installmentId) ?: return
+    suspend fun deleteSingleInstallment(installmentId: Long): Unit = tx {
+        val item = installmentDao.getInstallmentById(installmentId) ?: return@tx
         val expenseId = item.expenseId
         installmentDao.deleteById(installmentId)
         val remainingCount = installmentDao.getCountByExpenseId(expenseId)
@@ -270,8 +287,8 @@ class FinanceRepository(
         startYear: Int,
         startMonth: Int,
         markPastInstallmentsAsPaid: Boolean = false
-    ) {
-        val existing = expenseDao.getExpenseById(expenseId) ?: return
+    ): Unit = tx {
+        val existing = expenseDao.getExpenseById(expenseId) ?: return@tx
 
         if (existing.type == ExpenseType.SHARED_BILL) {
             val myShare = if (existing.myShareAmount > 0) Money.toReal(existing.myShareAmount) else (newTotalAmount / 2.0)
@@ -287,7 +304,7 @@ class FinanceRepository(
                 specificYear = startYear,
                 specificMonth = startMonth
             )
-            return
+            return@tx
         }
 
         val updated = existing.copy(
@@ -355,8 +372,8 @@ class FinanceRepository(
         updateAllMonths: Boolean,
         specificYear: Int,
         specificMonth: Int
-    ) {
-        val existing = expenseDao.getExpenseById(expenseId) ?: return
+    ): Unit = tx {
+        val existing = expenseDao.getExpenseById(expenseId) ?: return@tx
         val allInstallments = installmentDao.getInstallmentListByExpenseId(expenseId)
 
         if (updateAllMonths) {

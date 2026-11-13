@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Acerto: ícone da tela de abertura do Android 12+.
+     Mesmo foreground do launcher, com inset para caber no círculo de 2/3 da área do splash. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_foreground"
+    android:inset="12.5%" />

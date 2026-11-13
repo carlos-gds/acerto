@@ -24,7 +24,7 @@ class BackupRepository(
 
         BackupPayload(
             backupVersion = 1,
-            appName = "Quem Me Deve",
+            appName = "Acerto",
             createdAt = System.currentTimeMillis(),
             people = people,
             expenses = expenses,

@@ -31,8 +31,8 @@ class Converters {
         Expense::class,
         InstallmentItem::class
     ],
-    version = 2,
-    exportSchema = false
+    version = 3,
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -70,9 +70,19 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "divide_facil_database"
-                ).addMigrations(MIGRATION_1_2).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        /**
+         * Versão 3: avatar da pessoa. Só adiciona a coluna com padrão NEUTRAL;
+         * nenhuma tabela é recriada, então pessoas, despesas e parcelas ficam intactas.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE people ADD COLUMN avatar TEXT NOT NULL DEFAULT 'NEUTRAL'")
             }
         }
 

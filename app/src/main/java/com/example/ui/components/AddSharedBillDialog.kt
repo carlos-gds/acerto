@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.util.MoneyInput
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -70,6 +71,13 @@ import com.example.data.model.Person
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.CurrencyFormatter
 import kotlin.math.abs
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -120,7 +128,7 @@ fun AddSharedBillDialog(
     var notes by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val totalAmount = totalAmountText.replace(",", ".").toDoubleOrNull() ?: 0.0
+    val totalAmount = MoneyInput.parse(totalAmountText) ?: 0.0
 
     val activePeople = people.filter { selectedPeopleIds[it.id] == true }
     val totalParticipantCount = (if (includeMe) 1 else 0) + activePeople.size
@@ -133,13 +141,11 @@ fun AddSharedBillDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(26.dp),
-        modifier = Modifier.border(
-            BorderStroke(1.dp, liquid.cardBorderSubtle),
-            shape = RoundedCornerShape(26.dp)
-        ),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         title = {
+            LiquidDialogBlur()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -148,7 +154,7 @@ fun AddSharedBillDialog(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(liquid.pillPrimaryBg),
+                        .background(liquid.accentGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -191,17 +197,11 @@ fun AddSharedBillDialog(
                     },
                     label = { Text("Nome da Conta *", color = liquid.textSecondary) },
                     placeholder = { Text("Ex: Internet Fibra, Conta de Luz, Aluguel", color = liquid.textMuted) },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(title)
                         .fillMaxWidth()
                         .testTag("input_bill_title"),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary,
-                        focusedBorderColor = liquid.pillPrimaryBg,
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        cursorColor = liquid.pillPrimaryBg
-                    ),
+                    colors = liquidTextFieldColors(),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
 
@@ -214,17 +214,11 @@ fun AddSharedBillDialog(
                     },
                     label = { Text("Valor Total da Conta (R$) *", color = liquid.textSecondary) },
                     placeholder = { Text("Ex: 120,00", color = liquid.textMuted) },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(totalAmountText)
                         .fillMaxWidth()
                         .testTag("input_bill_amount"),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary,
-                        focusedBorderColor = liquid.pillPrimaryBg,
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        cursorColor = liquid.pillPrimaryBg
-                    ),
+                    colors = liquidTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
@@ -233,7 +227,7 @@ fun AddSharedBillDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(liquid.cardSurfaceVariant.copy(alpha = 0.6f))
+                        .background(liquid.cardSurfaceVariant)
                         .border(1.dp, liquid.cardBorderSubtle, RoundedCornerShape(16.dp))
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -389,22 +383,12 @@ fun AddSharedBillDialog(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(22.dp)
-                                                .clip(CircleShape)
-                                                .background(personColor),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = person.name.firstOrNull()?.uppercase() ?: "",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 11.sp
-                                                ),
-                                                color = Color.White
-                                            )
-                                        }
+                                        PersonAvatarBadge(
+                                            name = person.name,
+                                            colorHex = person.colorHex,
+                                            avatar = person.avatar,
+                                            size = 24.dp
+                                        )
 
                                         Text(
                                             text = person.name,
@@ -450,12 +434,7 @@ fun AddSharedBillDialog(
                                     fontWeight = if (isEqualSplit) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = liquid.pillPrimaryBg,
-                                selectedLabelColor = liquid.pillPrimaryText,
-                                containerColor = liquid.cardSurfaceVariant,
-                                labelColor = liquid.textPrimary
-                            ),
+                            colors = liquidFilterChipColors(),
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = isEqualSplit,
@@ -481,12 +460,7 @@ fun AddSharedBillDialog(
                                     fontWeight = if (!isEqualSplit) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = liquid.pillPrimaryBg,
-                                selectedLabelColor = liquid.pillPrimaryText,
-                                containerColor = liquid.cardSurfaceVariant,
-                                labelColor = liquid.textPrimary
-                            ),
+                            colors = liquidFilterChipColors(),
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = !isEqualSplit,
@@ -504,7 +478,7 @@ fun AddSharedBillDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
-                            .background(liquid.cardSurfaceVariant.copy(alpha = 0.5f))
+                            .background(liquid.cardSurfaceVariant)
                             .border(1.dp, liquid.cardBorderSubtle, RoundedCornerShape(14.dp))
                             .padding(10.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -520,15 +494,9 @@ fun AddSharedBillDialog(
                                 value = customShares[MY_PERSON_ID] ?: "",
                                 onValueChange = { customShares[MY_PERSON_ID] = it },
                                 label = { Text("Minha parte (Eu) - R$", color = liquid.textSecondary) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.liquidFieldMotion(customShares[MY_PERSON_ID] ?: "").fillMaxWidth(),
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = liquid.textPrimary,
-                                    unfocusedTextColor = liquid.textPrimary,
-                                    focusedBorderColor = liquid.pillPrimaryBg,
-                                    unfocusedBorderColor = liquid.cardBorderSubtle,
-                                    cursorColor = liquid.pillPrimaryBg
-                                ),
+                                colors = liquidTextFieldColors(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                             )
                         }
@@ -538,15 +506,9 @@ fun AddSharedBillDialog(
                                 value = customShares[person.id] ?: "",
                                 onValueChange = { customShares[person.id] = it },
                                 label = { Text("Parte de ${person.name} - R$", color = liquid.textSecondary) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.liquidFieldMotion(customShares[person.id] ?: "").fillMaxWidth(),
                                 singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = liquid.textPrimary,
-                                    unfocusedTextColor = liquid.textPrimary,
-                                    focusedBorderColor = liquid.pillPrimaryBg,
-                                    unfocusedBorderColor = liquid.cardBorderSubtle,
-                                    cursorColor = liquid.pillPrimaryBg
-                                ),
+                                colors = liquidTextFieldColors(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                             )
                         }
@@ -588,7 +550,7 @@ fun AddSharedBillDialog(
                                 }
                             } else {
                                 if (includeMe) {
-                                    val myVal = customShares[MY_PERSON_ID]?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+                                    val myVal = customShares[MY_PERSON_ID]?.let { MoneyInput.parse(it) } ?: 0.0
                                     Text(
                                         text = "• Minha parte (Eu): ${CurrencyFormatter.format(myVal)}",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -596,7 +558,7 @@ fun AddSharedBillDialog(
                                     )
                                 }
                                 activePeople.forEach { person ->
-                                    val pVal = customShares[person.id]?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+                                    val pVal = customShares[person.id]?.let { MoneyInput.parse(it) } ?: 0.0
                                     Text(
                                         text = "• Parte de ${person.name}: ${CurrencyFormatter.format(pVal)}",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -715,15 +677,9 @@ fun AddSharedBillDialog(
                     onValueChange = { notes = it },
                     label = { Text("Observações (opcional)", color = liquid.textSecondary) },
                     placeholder = { Text("Ex: Vence dia 10 todo mês", color = liquid.textMuted) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.liquidFieldMotion(notes).fillMaxWidth(),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary,
-                        focusedBorderColor = liquid.pillPrimaryBg,
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        cursorColor = liquid.pillPrimaryBg
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Error message display
@@ -778,7 +734,7 @@ fun AddSharedBillDialog(
                     } else {
                         var customSum = 0.0
                         if (includeMe) {
-                            val myVal = customShares[MY_PERSON_ID]?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+                            val myVal = customShares[MY_PERSON_ID]?.let { MoneyInput.parse(it) } ?: 0.0
                             if (myVal <= 0.0) {
                                 errorMessage = "Informe um valor maior que zero para sua parte."
                                 return@Button
@@ -794,7 +750,7 @@ fun AddSharedBillDialog(
                             )
                         }
                         for (person in activePeople) {
-                            val pVal = customShares[person.id]?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+                            val pVal = customShares[person.id]?.let { MoneyInput.parse(it) } ?: 0.0
                             if (pVal <= 0.0) {
                                 errorMessage = "Informe um valor válido para ${person.name}."
                                 return@Button

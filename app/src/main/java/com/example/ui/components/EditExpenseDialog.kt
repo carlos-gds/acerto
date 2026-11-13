@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.util.MoneyInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +61,14 @@ import com.example.data.model.Person
 import com.example.util.Money
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
+import com.example.ui.components.glass.shakeOnChange
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -100,14 +109,16 @@ fun EditExpenseDialog(
     var startYear by remember { mutableIntStateOf(initialStartYear) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val numericAmount = totalAmountText.replace(",", ".").toDoubleOrNull() ?: 0.0
+    val numericAmount = MoneyInput.parse(totalAmountText) ?: 0.0
     val installmentAmount = if (installments > 0) numericAmount / installments else 0.0
 
     AlertDialog(
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(24.dp),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
         title = {
+            LiquidDialogBlur()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -116,7 +127,7 @@ fun EditExpenseDialog(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(liquid.pillPrimaryBg),
+                        .background(liquid.accentGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -153,17 +164,12 @@ fun EditExpenseDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Descrição / Título") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(title)
                         .fillMaxWidth()
                         .testTag("edit_expense_title_input"),
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Total Amount
@@ -171,17 +177,12 @@ fun EditExpenseDialog(
                     value = totalAmountText,
                     onValueChange = { totalAmountText = it },
                     label = { Text(if (item.expenseType == ExpenseType.CARD_PURCHASE) "Valor Total da Compra (R$)" else "Valor (R$)") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(totalAmountText)
                         .fillMaxWidth()
                         .testTag("edit_expense_amount_input"),
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Person selector
@@ -275,6 +276,7 @@ fun EditExpenseDialog(
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage!!,
+                        modifier = Modifier.shakeOnChange(errorMessage),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )

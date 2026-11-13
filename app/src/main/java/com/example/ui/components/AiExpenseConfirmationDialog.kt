@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.util.MoneyInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -56,6 +57,13 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.QuickExpenseAiResponse
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
 
 @Composable
 fun AiExpenseConfirmationDialog(
@@ -76,14 +84,16 @@ fun AiExpenseConfirmationDialog(
     var markPastAsPaid by remember { mutableStateOf(true) }
 
     val isRetroactive = (selectedYear * 12 + selectedMonth) < (currentYear * 12 + currentMonth)
-    val numericAmount = totalAmountText.replace(",", ".").toDoubleOrNull() ?: 0.0
+    val numericAmount = MoneyInput.parse(totalAmountText) ?: 0.0
     val installmentAmount = if (installments > 0) numericAmount / installments else 0.0
 
     AlertDialog(
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(24.dp),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
         title = {
+            LiquidDialogBlur()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -93,7 +103,7 @@ fun AiExpenseConfirmationDialog(
                         .size(36.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(
-                            Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF3B82F6)))
+                            liquid.accentGradient
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -131,19 +141,12 @@ fun AiExpenseConfirmationDialog(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Descrição / Título") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(description)
                         .fillMaxWidth()
                         .testTag("ai_confirm_desc_input"),
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedBorderColor = Color(0xFF8B5CF6),
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Total Amount field
@@ -151,19 +154,12 @@ fun AiExpenseConfirmationDialog(
                     value = totalAmountText,
                     onValueChange = { totalAmountText = it },
                     label = { Text("Valor Total (R$)") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(totalAmountText)
                         .fillMaxWidth()
                         .testTag("ai_confirm_amount_input"),
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedBorderColor = Color(0xFF8B5CF6),
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Target Person field
@@ -171,26 +167,19 @@ fun AiExpenseConfirmationDialog(
                     value = targetPerson,
                     onValueChange = { targetPerson = it },
                     label = { Text("Pessoa / Contato") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(targetPerson)
                         .fillMaxWidth()
                         .testTag("ai_confirm_person_input"),
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = null,
-                            tint = Color(0xFF8B5CF6)
+                            tint = liquid.accent
                         )
                     },
                     shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedBorderColor = Color(0xFF8B5CF6),
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 // Installment Slider & Counter
@@ -217,7 +206,7 @@ fun AiExpenseConfirmationDialog(
                             text = "${installments}x de ${CurrencyFormatter.format(installmentAmount)}",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8B5CF6)
+                            color = liquid.accent
                         )
                     }
 
@@ -283,7 +272,7 @@ fun AiExpenseConfirmationDialog(
                                 text = "${CurrencyFormatter.getMonthShortName(selectedMonth)} / $selectedYear",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF8B5CF6)
+                                color = liquid.accent
                             )
 
                             androidx.compose.material3.IconButton(
@@ -312,7 +301,7 @@ fun AiExpenseConfirmationDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF8B5CF6).copy(alpha = 0.12f))
+                                .background(liquid.accent.copy(alpha = 0.12f))
                                 .clickable { markPastAsPaid = !markPastAsPaid }
                                 .padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -351,7 +340,7 @@ fun AiExpenseConfirmationDialog(
                 enabled = description.isNotBlank() && numericAmount > 0 && targetPerson.isNotBlank(),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF8B5CF6)
+                    containerColor = liquid.accent
                 ),
                 modifier = Modifier.testTag("ai_confirm_save_button")
             ) {

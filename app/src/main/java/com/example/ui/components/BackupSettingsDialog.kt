@@ -51,6 +51,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.BackupUiState
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
 
 @Composable
 fun BackupSettingsDialog(
@@ -68,6 +74,7 @@ fun BackupSettingsDialog(
     // Alert dialog when user needs to confirm destructive database replacement
     if (uiState is BackupUiState.ConfirmingRestore) {
         AlertDialog(
+            modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
             onDismissRequest = onDismissConfirmation,
             icon = {
                 Icon(
@@ -78,6 +85,7 @@ fun BackupSettingsDialog(
                 )
             },
             title = {
+                LiquidDialogBlur()
                 Text(
                     text = "Substituir Dados Atuais?",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -119,19 +127,21 @@ fun BackupSettingsDialog(
                     Text("Cancelar", color = liquid.textSecondary)
                 }
             },
-            containerColor = liquid.cardSurface,
-            shape = RoundedCornerShape(24.dp)
+            containerColor = liquidDialogSurface(),
+            shape = LiquidShapes.cardLarge
         )
     }
 
     Dialog(onDismissRequest = onDismiss) {
+        LiquidDialogBlur()
         Surface(
             modifier = modifier
+                .liquidDialogEnter()
                 .fillMaxWidth()
                 .padding(vertical = 16.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = liquid.cardSurface,
-            border = BorderStroke(1.dp, liquid.cardBorder)
+            shape = LiquidShapes.cardLarge,
+            color = liquidDialogSurface(),
+            border = BorderStroke(1.dp, liquid.specularBorder)
         ) {
             Column(
                 modifier = Modifier
@@ -234,8 +244,8 @@ fun BackupSettingsDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0x1F10B981)),
-                        border = BorderStroke(1.dp, Color(0x6610B981))
+                        colors = CardDefaults.cardColors(containerColor = liquid.accentPaidContainer),
+                        border = BorderStroke(1.dp, liquid.accentPaid.copy(alpha = 0.4f))
                     ) {
                         Row(
                             modifier = Modifier
@@ -252,7 +262,7 @@ fun BackupSettingsDialog(
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = null,
-                                    tint = Color(0xFF10B981),
+                                    tint = liquid.accentPaid,
                                     modifier = Modifier.size(22.dp)
                                 )
                                 Text(
@@ -278,8 +288,8 @@ fun BackupSettingsDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0x1FEF4444)),
-                        border = BorderStroke(1.dp, Color(0x66EF4444))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
                     ) {
                         Row(
                             modifier = Modifier
@@ -296,7 +306,7 @@ fun BackupSettingsDialog(
                                 Icon(
                                     imageVector = Icons.Default.ErrorOutline,
                                     contentDescription = null,
-                                    tint = Color(0xFFEF4444),
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(22.dp)
                                 )
                                 Text(
@@ -437,7 +447,7 @@ fun BackupSettingsDialog(
                                 .height(46.dp)
                                 .testTag("btn_import_backup"),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, liquid.cardBorder),
+                            border = BorderStroke(1.dp, liquid.specularBorder),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = liquid.textPrimary
                             )

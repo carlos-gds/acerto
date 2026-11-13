@@ -18,6 +18,10 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.MonthlyHistorySummary
 import com.example.util.CurrencyFormatter
+import androidx.compose.foundation.border
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
 
 @Composable
 fun MonthlyHistorySection(
@@ -30,9 +34,9 @@ fun MonthlyHistorySection(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = LiquidShapes.cardLarge,
         colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-        border = BorderStroke(1.dp, liquid.cardBorder)
+        border = BorderStroke(1.dp, liquid.specularBorder)
     ) {
         Column(
             modifier = Modifier

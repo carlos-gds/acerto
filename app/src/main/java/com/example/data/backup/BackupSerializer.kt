@@ -23,6 +23,7 @@ object BackupSerializer {
                 put("phone", person.phone)
                 put("colorHex", person.colorHex)
                 put("createdAt", person.createdAt)
+                put("avatar", person.avatar)
             }
             peopleArray.put(pObj)
         }
@@ -95,7 +96,7 @@ object BackupSerializer {
         }
 
         val version = root.getInt("backupVersion")
-        val appName = root.optString("appName", "Quem Me Deve")
+        val appName = root.optString("appName", "Acerto")
         val createdAt = root.optLong("createdAt", System.currentTimeMillis())
 
         val people = mutableListOf<PersonBackupDto>()
@@ -108,7 +109,9 @@ object BackupSerializer {
                     name = pObj.getString("name"),
                     phone = pObj.optString("phone", ""),
                     colorHex = pObj.optString("colorHex", "#10B981"),
-                    createdAt = pObj.optLong("createdAt", System.currentTimeMillis())
+                    createdAt = pObj.optLong("createdAt", System.currentTimeMillis()),
+                    // Backups antigos (sem avatar) ou valores desconhecidos -> NEUTRAL
+                    avatar = com.example.data.model.PersonAvatar.from(pObj.optString("avatar", "")).name
                 )
             )
         }

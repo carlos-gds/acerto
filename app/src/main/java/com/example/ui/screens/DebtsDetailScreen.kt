@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.PersonAvatarBadge
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -74,6 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -84,6 +86,26 @@ import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.FinanceViewModel
 import com.example.ui.viewmodel.PersonMonthlyGroup
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.example.ui.components.glass.GlassIconButton
+import com.example.ui.components.glass.LiquidBackground
+import com.example.ui.components.glass.liquidGlass
+import com.example.ui.theme.LocalLiquidElevation
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
+import com.example.ui.components.glass.animatedMoney
+
+// Cores sobre o card de destaque (gradiente azul): iguais nos dois temas.
+private val DetailHeroTextSecondary = Color(0xD9FFFFFF)
+private val DetailHeroGlass = Color(0x24FFFFFF)
+private val DetailHeroGlassBorder = Color(0x33FFFFFF)
+private val DetailHeroPaid = Color(0xFF6EE7B7)
+private val DetailHeroPending = Color(0xFFFCD34D)
 
 enum class DebtScopeFilter {
     SELECTED_MONTH,
@@ -97,7 +119,11 @@ fun DebtsDetailScreen(
     onBack: () -> Unit,
     onEditItem: (InstallmentItem) -> Unit,
     onDeleteItem: (InstallmentItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** false quando a tela é uma aba da barra inferior (a navegação fica na barra). */
+    showBackButton: Boolean = true,
+    /** Espaço extra no fim da lista, para não ficar atrás da barra inferior. */
+    bottomContentPadding: Dp = 12.dp
 ) {
     BackHandler { onBack() }
 
@@ -133,7 +159,8 @@ fun DebtsDetailScreen(
             scope = scope,
             selectedMonth = selectedMonth,
             selectedYear = selectedYear,
-            notesByExpenseId = expenseNotesMap
+            notesByExpenseId = expenseNotesMap,
+            pixKey = com.example.util.PixKeyStore.get(context)
         )
         ShareIntentHelper.sharePlainText(
             context = context,
@@ -175,11 +202,7 @@ fun DebtsDetailScreen(
     val totalPending = rawGroups.sumOf { it.pendingAmount }
     val totalPaid = rawGroups.sumOf { it.paidAmount }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(liquid.backgroundGradient)
-    ) {
+    LiquidBackground(modifier = modifier) {
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
@@ -196,59 +219,48 @@ fun DebtsDetailScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(liquid.circleButtonBg)
-                            .border(1.dp, liquid.cardBorderSubtle, CircleShape)
-                            .clickable { onBack() }
-                            .testTag("debts_detail_back_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    // Botão voltar de vidro (Figma: círculo de 46 dp)
+                    if (showBackButton) {
+                        GlassIconButton(
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar",
-                            tint = liquid.textPrimary,
-                            modifier = Modifier.size(20.dp)
+                            onClick = onBack,
+                            size = 42.dp,
+                            modifier = Modifier.testTag("debts_detail_back_btn")
                         )
                     }
 
-                    Column {
+                    Column(modifier = Modifier.padding(start = if (showBackButton) 0.dp else 8.dp)) {
                         Text(
-                            text = "Detalhamento de Dívidas",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp
-                            ),
+                            text = if (showBackButton) "Detalhamento de Dívidas" else "Cobranças",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                             color = liquid.textPrimary
                         )
                         Text(
                             text = "Quem deve e o que deve",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.bodySmall,
                             color = liquid.textSecondary
                         )
                     }
                 }
 
-                IconButton(
+                GlassIconButton(
+                    icon = if (showSearchField) Icons.Default.Clear else Icons.Default.Search,
+                    contentDescription = "Buscar",
                     onClick = { showSearchField = !showSearchField },
+                    size = 42.dp,
+                    accent = showSearchField,
                     modifier = Modifier.testTag("toggle_search_debts")
-                ) {
-                    Icon(
-                        imageVector = if (showSearchField) Icons.Default.Clear else Icons.Default.Search,
-                        contentDescription = "Buscar",
-                        tint = liquid.textSecondary
-                    )
-                }
+                )
             }
 
             // Search Bar (expandable)
@@ -257,24 +269,19 @@ fun DebtsDetailScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Buscar por pessoa ou compra...") },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(searchQuery)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
                         .testTag("search_debts_input"),
                     shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = liquid.cardSurfaceVariant,
-                        unfocusedContainerColor = liquid.cardSurfaceVariant,
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary
-                    ),
+                    colors = liquidTextFieldColors(),
                     singleLine = true
                 )
             }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = bottomContentPadding),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Scope Filter Tabs
@@ -293,10 +300,7 @@ fun DebtsDetailScreen(
                                 )
                             },
                             shape = RoundedCornerShape(50),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = liquid.pillPrimaryBg,
-                                selectedLabelColor = liquid.pillPrimaryText
-                            ),
+                            colors = liquidFilterChipColors(),
                             modifier = Modifier.testTag("filter_selected_month")
                         )
 
@@ -307,7 +311,7 @@ fun DebtsDetailScreen(
                             ) {
                                 IconButton(
                                     onClick = { viewModel.previousMonth() },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -318,7 +322,7 @@ fun DebtsDetailScreen(
                                 }
                                 IconButton(
                                     onClick = { viewModel.nextMonth() },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -333,12 +337,9 @@ fun DebtsDetailScreen(
                         FilterChip(
                             selected = currentFilter == DebtScopeFilter.ALL_TIME,
                             onClick = { currentFilter = DebtScopeFilter.ALL_TIME },
-                            label = { Text("Geral (Tudo que Devem)") },
+                            label = { Text("Geral", maxLines = 1) },
                             shape = RoundedCornerShape(50),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = liquid.pillPrimaryBg,
-                                selectedLabelColor = liquid.pillPrimaryText
-                            ),
+                            colors = liquidFilterChipColors(),
                             modifier = Modifier.testTag("filter_all_time")
                         )
                     }
@@ -346,120 +347,117 @@ fun DebtsDetailScreen(
 
                 // Overview Hero Glass Card
                 item(key = "overview_hero_card") {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorder)
+                    // Card de destaque com o gradiente do acento (como o resumo da Home)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .liquidGlass(
+                                shape = LiquidShapes.cardLarge,
+                                fill = liquid.heroGradient,
+                                elevation = LocalLiquidElevation.current.high
+                            )
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        Text(
+                            text = if (currentFilter == DebtScopeFilter.SELECTED_MONTH) {
+                                "Total que devem a você neste mês"
+                            } else {
+                                "Total geral que devem a você"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = liquid.heroText
+                        )
+
+                        val displayOwed = CurrencyFormatter.format(animatedMoney(totalOwed), isPrivacyMode)
+                        Text(
+                            text = displayOwed,
+                            style = MaterialTheme.typography.displaySmall,
+                            color = liquid.heroText
+                        )
+
+                        // Status metrics row (vidro translúcido sobre o destaque)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
-                                text = if (currentFilter == DebtScopeFilter.SELECTED_MONTH) {
-                                    "TOTAL QUE DEVEM A VOCÊ NESTE MÊS"
-                                } else {
-                                    "TOTAL GERAL QUE DEVEM A VOCÊ"
-                                },
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    fontSize = 11.sp
-                                ),
-                                color = liquid.textSecondary
-                            )
-
-                            val displayOwed = CurrencyFormatter.format(totalOwed, isPrivacyMode)
-                            Text(
-                                text = displayOwed,
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 28.sp
-                                ),
-                                color = liquid.textPrimary
-                            )
-
-                            // Status metrics row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(LiquidShapes.row)
+                                    .background(DetailHeroGlass)
+                                    .border(1.dp, DetailHeroGlassBorder, LiquidShapes.row)
+                                    .padding(12.dp)
                             ) {
-                                // Pending box
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = liquid.cardSurfaceVariant,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorderSubtle)
-                                ) {
-                                    Column(modifier = Modifier.padding(10.dp)) {
-                                        Text(
-                                            text = "Pendente",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = liquid.textSecondary
-                                        )
-                                        val displayPending = CurrencyFormatter.format(totalPending, isPrivacyMode)
-                                        Text(
-                                            text = displayPending,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = if (totalPending > 0) liquid.accentPending else liquid.accentPaid
-                                        )
-                                    }
-                                }
-
-                                // Paid box
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = liquid.cardSurfaceVariant,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorderSubtle)
-                                ) {
-                                    Column(modifier = Modifier.padding(10.dp)) {
-                                        Text(
-                                            text = "Já Quitado",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = liquid.textSecondary
-                                        )
-                                        val displayPaid = CurrencyFormatter.format(totalPaid, isPrivacyMode)
-                                        Text(
-                                            text = displayPaid,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = liquid.accentPaid
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = "Pendente",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = DetailHeroTextSecondary
+                                )
+                                val displayPending = CurrencyFormatter.format(animatedMoney(totalPending), isPrivacyMode)
+                                Text(
+                                    text = displayPending,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (totalPending > 0) DetailHeroPending else DetailHeroPaid
+                                )
                             }
 
-                            // Progress bar
-                            if (totalOwed > 0) {
-                                val progress = (totalPaid / totalOwed).toFloat().coerceIn(0f, 1f)
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    LinearProgressIndicator(
-                                        progress = { progress },
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(LiquidShapes.row)
+                                    .background(DetailHeroGlass)
+                                    .border(1.dp, DetailHeroGlassBorder, LiquidShapes.row)
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "Já Quitado",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = DetailHeroTextSecondary
+                                )
+                                val displayPaid = CurrencyFormatter.format(animatedMoney(totalPaid), isPrivacyMode)
+                                Text(
+                                    text = displayPaid,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = DetailHeroPaid
+                                )
+                            }
+                        }
+
+                        // Barra de progresso de vidro
+                        if (totalOwed > 0) {
+                            val progress = (totalPaid / totalOwed).toFloat().coerceIn(0f, 1f)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(7.dp)
+                                        .clip(LiquidShapes.pill)
+                                        .background(DetailHeroGlass)
+                                        .border(1.dp, DetailHeroGlassBorder, LiquidShapes.pill)
+                                ) {
+                                    Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(50)),
-                                        color = liquid.accentPaid,
-                                        trackColor = liquid.cardBorderSubtle
+                                            .fillMaxWidth(progress)
+                                            .fillMaxHeight()
+                                            .clip(LiquidShapes.pill)
+                                            .background(Color(0xE6FFFFFF))
                                     )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "Recebido: ${(progress * 100).toInt()}%",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = liquid.textSecondary
-                                        )
-                                        Text(
-                                            text = "${filteredGroups.size} pessoas",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = liquid.textSecondary
-                                        )
-                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Recebido: ${(progress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = DetailHeroTextSecondary
+                                    )
+                                    Text(
+                                        text = "${filteredGroups.size} pessoas",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = DetailHeroTextSecondary
+                                    )
                                 }
                             }
                         }
@@ -477,7 +475,7 @@ fun DebtsDetailScreen(
                 item(key = "section_people_header") {
                     Text(
                         text = "Detalhamento por Pessoa",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium,
                         color = liquid.textPrimary,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -490,7 +488,7 @@ fun DebtsDetailScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorder)
+                            border = androidx.compose.foundation.BorderStroke(1.dp, liquid.specularBorder)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -556,8 +554,10 @@ fun DebtsDetailScreen(
 
     pendingPrivacyShareGroup?.let { targetGroup ->
         AlertDialog(
+            modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
             onDismissRequest = { pendingPrivacyShareGroup = null },
             title = {
+                LiquidDialogBlur()
                 Text(
                     text = "Modo Privacidade Ativo",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -598,7 +598,7 @@ fun DebtsDetailScreen(
                     )
                 }
             },
-            containerColor = liquid.cardSurface,
+            containerColor = liquidDialogSurface(),
             shape = RoundedCornerShape(20.dp)
         )
     }
@@ -630,9 +630,9 @@ fun PersonDebtDetailCard(
             .fillMaxWidth()
             .animateContentSize()
             .testTag("person_debt_card_${group.personId}"),
-        shape = RoundedCornerShape(22.dp),
+        shape = LiquidShapes.card,
         colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorder)
+        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.specularBorder)
     ) {
         Column(
             modifier = Modifier
@@ -651,31 +651,23 @@ fun PersonDebtDetailCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(personColor.copy(alpha = 0.2f))
-                            .border(1.5.dp, personColor, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = group.personName.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = personColor
-                        )
-                    }
+                    PersonAvatarBadge(
+                        name = group.personName,
+                        colorHex = group.colorHex,
+                        avatar = group.avatar,
+                        size = 46.dp
+                    )
 
                     Column {
                         Text(
                             text = group.personName,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMedium,
                             color = liquid.textPrimary
                         )
                         val pendingText = if (group.pendingAmount <= 0) {
                             "Tudo pago 🎉"
                         } else {
-                            "Pendente: ${CurrencyFormatter.format(group.pendingAmount, isPrivacyMode)}"
+                            "Pendente: ${CurrencyFormatter.format(animatedMoney(group.pendingAmount), isPrivacyMode)}"
                         }
                         Text(
                             text = pendingText,
@@ -741,7 +733,7 @@ fun PersonDebtDetailCard(
                     // Expand / Collapse
                     IconButton(
                         onClick = { isExpanded = !isExpanded },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
                     ) {
                         Text(
                             text = if (isExpanded) "▲" else "▼",
@@ -766,7 +758,7 @@ fun PersonDebtDetailCard(
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
                         Text("Total", style = MaterialTheme.typography.labelSmall, color = liquid.textSecondary)
-                        val disp = CurrencyFormatter.format(group.totalAmount, isPrivacyMode)
+                        val disp = CurrencyFormatter.format(animatedMoney(group.totalAmount), isPrivacyMode)
                         Text(disp, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = liquid.textPrimary)
                     }
                 }
@@ -780,7 +772,7 @@ fun PersonDebtDetailCard(
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
                         Text("Pendente", style = MaterialTheme.typography.labelSmall, color = liquid.textSecondary)
-                        val disp = CurrencyFormatter.format(group.pendingAmount, isPrivacyMode)
+                        val disp = CurrencyFormatter.format(animatedMoney(group.pendingAmount), isPrivacyMode)
                         Text(
                             disp,
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
@@ -798,7 +790,7 @@ fun PersonDebtDetailCard(
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
                         Text("Pago", style = MaterialTheme.typography.labelSmall, color = liquid.textSecondary)
-                        val disp = CurrencyFormatter.format(group.paidAmount, isPrivacyMode)
+                        val disp = CurrencyFormatter.format(animatedMoney(group.paidAmount), isPrivacyMode)
                         Text(disp, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = liquid.accentPaid)
                     }
                 }
@@ -853,14 +845,17 @@ fun DebtItemRow(
         modifier = modifier
             .fillMaxWidth()
             .testTag("debt_item_row_${item.id}"),
-        shape = RoundedCornerShape(14.dp),
+        shape = LiquidShapes.row,
         color = liquid.cardSurfaceVariant,
-        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorderSubtle)
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (item.isPaid) liquid.cardBorderSubtle else liquid.cardBorder
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -869,11 +864,15 @@ fun DebtItemRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
+                // Bloco de ícone no acento (verde quando pago), como na Home
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(liquid.circleButtonBg),
+                        .size(38.dp)
+                        .clip(LiquidShapes.iconTile)
+                        .background(
+                            if (item.isPaid) liquid.accentPaidContainer else liquid.accent.copy(alpha = 0.16f)
+                        )
+                        .border(1.dp, liquid.cardBorderSubtle, LiquidShapes.iconTile),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -883,8 +882,8 @@ fun DebtItemRow(
                             Icons.Default.Splitscreen
                         },
                         contentDescription = null,
-                        tint = liquid.textPrimary,
-                        modifier = Modifier.size(16.dp)
+                        tint = if (item.isPaid) liquid.accentPaid else liquid.accent,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
@@ -954,7 +953,7 @@ fun DebtItemRow(
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
@@ -968,7 +967,7 @@ fun DebtItemRow(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                         modifier = Modifier
-                            .background(liquid.cardSurface)
+                            .background(liquid.sheetSurface)
                             .border(1.dp, liquid.cardBorderSubtle, RoundedCornerShape(12.dp))
                     ) {
                         DropdownMenuItem(

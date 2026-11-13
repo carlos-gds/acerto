@@ -67,6 +67,10 @@ secrets {
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
+// Room grava o esquema de cada versão do banco em app/schemas (versionar no Git):
+// serve de referência para escrever e testar as próximas migrations.
+ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {

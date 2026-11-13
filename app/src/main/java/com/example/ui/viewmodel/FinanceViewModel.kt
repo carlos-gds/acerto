@@ -49,7 +49,9 @@ data class PersonMonthlyGroup(
     val totalAmount: Double,
     val paidAmount: Double,
     val pendingAmount: Double,
-    val items: List<InstallmentItem>
+    val items: List<InstallmentItem>,
+    /** Avatar da pessoa (nome do enum PersonAvatar). */
+    val avatar: String = com.example.data.model.PersonAvatar.NEUTRAL.name
 )
 
 data class CardPurchaseProgress(
@@ -89,7 +91,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         val db = AppDatabase.getDatabase(application)
-        repository = FinanceRepository(db.personDao(), db.expenseDao(), db.installmentDao())
+        repository = FinanceRepository(db.personDao(), db.expenseDao(), db.installmentDao(), db)
         backupRepository = BackupRepository(db)
     }
 
@@ -102,6 +104,34 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     private val _selectedMonth = MutableStateFlow(currentMonth)
     val selectedMonth: StateFlow<Int> = _selectedMonth
+
+    /**
+     * Seleção automática do mês: enquanto o usuário não troca de mês manualmente,
+     * o app fica no mês pendente mais antigo (ou no atual, se tudo estiver quitado)
+     * e avança sozinho quando as pendências desse mês são quitadas.
+     */
+    private var autoMonthEnabled = true
+
+    /** true quando o mês exibido foi escolhido automaticamente por haver pendências antigas. */
+    private val _isShowingPendingMonth = MutableStateFlow(false)
+    val isShowingPendingMonth: StateFlow<Boolean> = _isShowingPendingMonth.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            repository.getAllInstallments().collect { items ->
+                if (!autoMonthEnabled) return@collect
+                val (year, month) = com.example.util.MonthSelectionPolicy.autoMonth(items, currentYear, currentMonth)
+                _selectedYear.value = year
+                _selectedMonth.value = month
+                _isShowingPendingMonth.value = year != currentYear || month != currentMonth
+            }
+        }
+    }
+
+    private fun disableAutoMonth() {
+        autoMonthEnabled = false
+        _isShowingPendingMonth.value = false
+    }
 
     val allPeople: StateFlow<List<Person>> = repository.allPeople
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -198,6 +228,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 totalAmount = total,
                 paidAmount = paid,
                 pendingAmount = pending,
+                avatar = person?.avatar ?: com.example.data.model.PersonAvatar.NEUTRAL.name,
                 items = personItems
             )
         }.sortedByDescending { it.pendingAmount }
@@ -226,6 +257,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 totalAmount = total,
                 paidAmount = paid,
                 pendingAmount = pending,
+                avatar = person?.avatar ?: com.example.data.model.PersonAvatar.NEUTRAL.name,
                 items = personItems.sortedWith(compareBy({ it.year }, { it.month }, { it.installmentNumber }))
             )
         }.sortedByDescending { it.pendingAmount }
@@ -268,11 +300,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun selectMonth(year: Int, month: Int) {
+        disableAutoMonth() // troca manual: o app passa a respeitar a escolha do usuário
         _selectedYear.value = year
         _selectedMonth.value = month
     }
 
     fun previousMonth() {
+        disableAutoMonth() // troca manual: o app passa a respeitar a escolha do usuário
         var m = _selectedMonth.value - 1
         var y = _selectedYear.value
         if (m < 1) {
@@ -284,6 +318,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun nextMonth() {
+        disableAutoMonth() // troca manual: o app passa a respeitar a escolha do usuário
         var m = _selectedMonth.value + 1
         var y = _selectedYear.value
         if (m > 12) {
@@ -300,9 +335,14 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addPerson(name: String, phone: String = "", colorHex: String = "#10B981") {
+    fun addPerson(
+        name: String,
+        phone: String = "",
+        colorHex: String = "#10B981",
+        avatar: String = com.example.data.model.PersonAvatar.NEUTRAL.name
+    ) {
         viewModelScope.launch {
-            repository.insertPerson(name, phone, colorHex)
+            repository.insertPerson(name, phone, colorHex, avatar)
         }
     }
 

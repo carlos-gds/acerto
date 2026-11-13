@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.util.MoneyInput
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,6 +62,14 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.Person
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.liquidFieldMotion
+import com.example.ui.components.glass.shakeOnChange
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -100,18 +109,16 @@ fun AddCardExpenseDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val isRetroactive = (startYear * 12 + startMonth) < (currentYear * 12 + currentMonth)
-    val amountValue = amountText.replace(",", ".").toDoubleOrNull() ?: 0.0
+    val amountValue = MoneyInput.parse(amountText) ?: 0.0
     val installmentValue = if (installments > 0 && amountValue > 0) amountValue / installments else 0.0
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = liquid.cardSurface,
-        shape = RoundedCornerShape(26.dp),
-        modifier = Modifier.border(
-            BorderStroke(1.dp, liquid.cardBorderSubtle),
-            shape = RoundedCornerShape(26.dp)
-        ),
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
         title = {
+            LiquidDialogBlur()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -120,7 +127,7 @@ fun AddCardExpenseDialog(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(liquid.pillPrimaryBg),
+                        .background(liquid.accentGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -163,17 +170,11 @@ fun AddCardExpenseDialog(
                     },
                     label = { Text("O que a pessoa comprou? *", color = liquid.textSecondary) },
                     placeholder = { Text("Ex: Tênis Nike, Celular, Airfryer", color = liquid.textMuted) },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(title)
                         .fillMaxWidth()
                         .testTag("input_expense_title"),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary,
-                        focusedBorderColor = liquid.pillPrimaryBg,
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        cursorColor = liquid.pillPrimaryBg
-                    ),
+                    colors = liquidTextFieldColors(),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
 
@@ -182,7 +183,7 @@ fun AddCardExpenseDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(liquid.cardSurfaceVariant.copy(alpha = 0.5f))
+                        .background(liquid.cardSurfaceVariant)
                         .border(1.dp, liquid.cardBorderSubtle, RoundedCornerShape(16.dp))
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -244,22 +245,12 @@ fun AddCardExpenseDialog(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(CircleShape)
-                                                .background(personColor),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = person.name.firstOrNull()?.uppercase() ?: "",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 10.sp
-                                                ),
-                                                color = Color.White
-                                            )
-                                        }
+                                        PersonAvatarBadge(
+                                            name = person.name,
+                                            colorHex = person.colorHex,
+                                            avatar = person.avatar,
+                                            size = 22.dp
+                                        )
                                         Text(
                                             text = person.name,
                                             style = MaterialTheme.typography.bodyMedium.copy(
@@ -283,17 +274,11 @@ fun AddCardExpenseDialog(
                     },
                     label = { Text("Valor Total (R$) *", color = liquid.textSecondary) },
                     placeholder = { Text("Ex: 300,00", color = liquid.textMuted) },
-                    modifier = Modifier
+                    modifier = Modifier.liquidFieldMotion(amountText)
                         .fillMaxWidth()
                         .testTag("input_expense_amount"),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary,
-                        focusedBorderColor = liquid.pillPrimaryBg,
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        cursorColor = liquid.pillPrimaryBg
-                    ),
+                    colors = liquidTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
@@ -302,7 +287,7 @@ fun AddCardExpenseDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(liquid.cardSurfaceVariant.copy(alpha = 0.5f))
+                        .background(liquid.cardSurfaceVariant)
                         .border(1.dp, liquid.cardBorderSubtle, RoundedCornerShape(16.dp))
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -473,20 +458,15 @@ fun AddCardExpenseDialog(
                     onValueChange = { notes = it },
                     label = { Text("Observação (opcional)", color = liquid.textSecondary) },
                     placeholder = { Text("Ex: Compra do aniversário", color = liquid.textMuted) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.liquidFieldMotion(notes).fillMaxWidth(),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = liquid.textPrimary,
-                        unfocusedTextColor = liquid.textPrimary,
-                        focusedBorderColor = liquid.pillPrimaryBg,
-                        unfocusedBorderColor = liquid.cardBorderSubtle,
-                        cursorColor = liquid.pillPrimaryBg
-                    )
+                    colors = liquidTextFieldColors()
                 )
 
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage!!,
+                        modifier = Modifier.shakeOnChange(errorMessage),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )

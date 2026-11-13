@@ -3,6 +3,20 @@ package com.example.ui.components
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.graphics.graphicsLayer
+import com.example.ui.components.glass.glow
+import com.example.ui.components.glass.pressScale
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,9 +62,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ExpenseType
 import com.example.data.model.InstallmentItem
+import androidx.compose.ui.semantics.Role
+import com.example.ui.components.glass.liquidGlass
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.theme.LocalLiquidElevation
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.PersonMonthlyGroup
 import com.example.util.CurrencyFormatter
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidDialogEnter
+import com.example.ui.components.glass.animatedMoney
 
 @Composable
 fun PersonDebtCard(
@@ -69,6 +93,11 @@ fun PersonDebtCard(
     val context = LocalContext.current
 
     val isAllPaid = group.pendingAmount <= 0.001
+    val chevronRotation = animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
+        label = "person_chevron"
+    )
 
     var showPrivacyShareConfirmation by remember { mutableStateOf(false) }
 
@@ -77,7 +106,8 @@ fun PersonDebtCard(
             group = group,
             scope = com.example.util.DebtMessageFormatter.DebtScope.SELECTED_MONTH,
             selectedMonth = selectedMonth,
-            selectedYear = selectedYear
+            selectedYear = selectedYear,
+            pixKey = com.example.util.PixKeyStore.get(context)
         )
         com.example.util.ShareIntentHelper.sharePlainText(
             context = context,
@@ -98,8 +128,10 @@ fun PersonDebtCard(
 
     if (showPrivacyShareConfirmation) {
         AlertDialog(
+            modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
             onDismissRequest = { showPrivacyShareConfirmation = false },
             title = {
+                LiquidDialogBlur()
                 Text(
                     text = "Modo Privacidade Ativo",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -136,25 +168,26 @@ fun PersonDebtCard(
                     Text(text = "Cancelar", color = liquid.textSecondary)
                 }
             },
-            containerColor = liquid.cardSurface,
+            containerColor = liquidDialogSurface(),
             shape = RoundedCornerShape(20.dp)
         )
     }
 
-    Card(
+    val personColor = remember(group.colorHex) {
+        try {
+            Color(android.graphics.Color.parseColor(group.colorHex))
+        } catch (_: Exception) {
+            liquid.accent
+        }
+    }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (liquid.isDark) 4.dp else 6.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = if (liquid.isDark) Color.Black.copy(alpha = 0.4f) else Color(0x1F0F172A)
-            )
-            .testTag("person_debt_card_${group.personId}"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorder)
+            .liquidGlass(shape = LiquidShapes.card, elevation = LocalLiquidElevation.current.medium)
+            .testTag("person_debt_card_${group.personId}")
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             // Person Header Row
             Row(
                 modifier = Modifier
@@ -177,30 +210,23 @@ fun PersonDebtCard(
                         .joinToString("")
                         .ifEmpty { "P" }
 
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(liquid.circleButtonBg)
-                            .border(1.dp, liquid.cardBorderSubtle, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = initials,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = liquid.textPrimary
-                        )
-                    }
+                    // Avatar de vidro na cor da pessoa (Figma: avatar circular de 46 dp com borda clara)
+                    PersonAvatarBadge(
+                        name = group.personName,
+                        colorHex = group.colorHex,
+                        avatar = group.avatar,
+                        size = 46.dp
+                    )
 
                     Column {
                         Text(
                             text = group.personName,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMedium,
                             color = liquid.textPrimary
                         )
                         Text(
                             text = "${group.items.size} ${if (group.items.size == 1) "item" else "itens"} neste mês",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.bodySmall,
                             color = liquid.textMuted
                         )
                     }
@@ -212,41 +238,61 @@ fun PersonDebtCard(
                 ) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = CurrencyFormatter.format(group.totalAmount, isPrivacyMode),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp
-                            ),
+                            text = CurrencyFormatter.format(animatedMoney(group.totalAmount), isPrivacyMode),
+                            style = MaterialTheme.typography.titleLarge,
                             color = liquid.textPrimary
                         )
 
-                        // Status badge
-                        if (isAllPaid) {
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Selo de status (quitado / pendente)
+                        // Transição animada pendente <-> quitado (cor + texto), com glow discreto
+                        val statusColor by animateColorAsState(
+                            if (isAllPaid) liquid.accentPaid else liquid.accentPending,
+                            label = "person_status_color"
+                        )
+                        val statusContainer by animateColorAsState(
+                            if (isAllPaid) liquid.accentPaidContainer else liquid.accentPendingContainer,
+                            label = "person_status_container"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .glow(statusColor, radius = 34.dp) { 0.35f }
+                                .clip(LiquidShapes.pill)
+                                .background(statusContainer)
+                                .border(1.dp, statusColor.copy(alpha = 0.45f), LiquidShapes.pill)
+                                .animateContentSize()
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
                             Text(
-                                text = "Quitado",
+                                text = if (isAllPaid) {
+                                    "Quitado"
+                                } else {
+                                    "Falta: ${CurrencyFormatter.format(animatedMoney(group.pendingAmount), isPrivacyMode)}"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = liquid.accentPaid
-                            )
-                        } else {
-                            Text(
-                                text = "Falta: ${CurrencyFormatter.format(group.pendingAmount, isPrivacyMode)}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = liquid.accentPending
+                                color = statusColor
                             )
                         }
                     }
 
                     Icon(
-                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = if (isExpanded) "Recolher detalhes de ${group.personName}" else "Expandir detalhes de ${group.personName}",
                         tint = liquid.textSecondary,
-                        modifier = Modifier.testTag("toggle_expand_person_${group.personId}")
+                        modifier = Modifier
+                            .graphicsLayer { rotationZ = chevronRotation.value }
+                            .testTag("toggle_expand_person_${group.personId}")
                     )
                 }
             }
 
             // Expanded Item List
-            AnimatedVisibility(visible = isExpanded) {
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(spring(dampingRatio = 0.85f, stiffness = 380f)) + fadeIn(tween(220, delayMillis = 60)),
+                exit = shrinkVertically(spring(dampingRatio = 0.9f, stiffness = 420f)) + fadeOut(tween(140))
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -266,34 +312,37 @@ fun PersonDebtCard(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // WhatsApp share button
-                    FilledTonalButton(
-                        onClick = { shareWhatsAppSummary() },
+                    // Botão de cobrar em pílula com o gradiente do acento (Figma: botão "Create")
+                    val shareInteraction = remember { MutableInteractionSource() }
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(46.dp)
+                            .clip(LiquidShapes.field)
+                            .background(liquid.accentGradient)
+                            .border(1.dp, liquid.specularBorder, LiquidShapes.field)
+                            .pressScale(shareInteraction, pressedScale = 0.97f)
+                            .clickable(
+                                interactionSource = shareInteraction,
+                                indication = LocalIndication.current,
+                                role = Role.Button
+                            ) { shareWhatsAppSummary() }
                             .testTag("share_whatsapp_${group.personId}"),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = liquid.cardSurfaceVariant,
-                            contentColor = liquid.textPrimary
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, liquid.cardBorderSubtle)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = liquid.textPrimary
-                            )
-                            Text(
-                                text = "Cobrar / Enviar Resumo no WhatsApp",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = liquid.textPrimary
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = liquid.pillPrimaryText
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = "Cobrar / Enviar Resumo no WhatsApp",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = liquid.pillPrimaryText
+                        )
                     }
                 }
             }

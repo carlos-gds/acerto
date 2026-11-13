@@ -3,6 +3,7 @@ package com.example.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +27,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.ui.components.glass.liquidGlass
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.theme.LocalLiquidElevation
 import com.example.ui.theme.LocalLiquidGlassColors
 
 /**
@@ -51,34 +55,34 @@ fun PeopleDebtsHeader(
         ) {
             Text(
                 text = "Divisão por Pessoa neste Mês",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleMedium,
                 color = liquid.textPrimary
             )
         }
 
         Surface(
-            shape = RoundedCornerShape(50),
-            color = liquid.cardSurfaceVariant,
-            border = BorderStroke(1.dp, liquid.cardBorderSubtle),
+            shape = LiquidShapes.pill,
+            color = liquid.pillSecondaryBg,
+            border = BorderStroke(1.dp, liquid.cardBorder),
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
+                .clip(LiquidShapes.pill)
                 .clickable { onViewDetailsClick() }
                 .testTag("btn_view_debts_detail")
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = "Ver detalhes",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = liquid.pillPrimaryBg
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = liquid.accent
                 )
                 Text(
                     text = "›",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = liquid.pillPrimaryBg
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = liquid.accent
                 )
             }
         }
@@ -95,11 +99,10 @@ fun PeopleDebtsEmptyState(
 ) {
     val liquid = LocalLiquidGlassColors.current
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = liquid.cardSurface),
-        border = BorderStroke(1.dp, liquid.cardBorder)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .liquidGlass(shape = LiquidShapes.card, elevation = LocalLiquidElevation.current.low)
     ) {
         Column(
             modifier = Modifier

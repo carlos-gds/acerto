@@ -27,3 +27,6 @@ metadata.json
 
 # Configurações locais do Android Studio
 .idea/
+
+# Registro local das respostas do assistente (não versionar)
+claude-respostas.txt

@@ -29,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -56,6 +57,12 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.LocalLiquidGlassColors
+import com.example.ui.components.glass.liquidFilterChipColors
+import com.example.ui.components.glass.liquidTextFieldColors
+import com.example.ui.theme.LiquidShapes
+import com.example.ui.components.glass.LiquidDialogBlur
+import com.example.ui.components.glass.liquidDialogSurface
+import com.example.ui.components.glass.liquidFieldMotion
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -93,10 +100,11 @@ fun QuickAiEntryBottomSheet(
             if (!isLoading) onDismiss()
         },
         sheetState = sheetState,
-        containerColor = liquid.cardSurface,
-        scrimColor = Color.Black.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        containerColor = liquidDialogSurface(),
+        scrimColor = liquid.scrim,
+        shape = LiquidShapes.sheet
     ) {
+        LiquidDialogBlur()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -113,9 +121,7 @@ fun QuickAiEntryBottomSheet(
                         .size(44.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF8B5CF6), Color(0xFF3B82F6))
-                            )
+                            liquid.accentGradient
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -185,7 +191,7 @@ fun QuickAiEntryBottomSheet(
             OutlinedTextField(
                 value = promptText,
                 onValueChange = { promptText = it },
-                modifier = Modifier
+                modifier = Modifier.liquidFieldMotion(promptText)
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
                     .testTag("ai_prompt_input"),
@@ -221,14 +227,7 @@ fun QuickAiEntryBottomSheet(
                         }
                     }
                 },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = liquid.cardSurfaceVariant,
-                    unfocusedContainerColor = liquid.cardSurfaceVariant,
-                    focusedBorderColor = Color(0xFF8B5CF6),
-                    unfocusedBorderColor = liquid.cardBorderSubtle,
-                    focusedTextColor = liquid.textPrimary,
-                    unfocusedTextColor = liquid.textPrimary
-                )
+                colors = liquidTextFieldColors()
             )
 
             // Error display if any
@@ -239,8 +238,8 @@ fun QuickAiEntryBottomSheet(
                             .fillMaxWidth()
                             .padding(top = 10.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0x26EF4444))
-                            .border(1.dp, Color(0x40EF4444), RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f))
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
                             .padding(10.dp)
                     ) {
                         Row(
@@ -250,13 +249,13 @@ fun QuickAiEntryBottomSheet(
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Erro",
-                                tint = Color(0xFFEF4444),
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = errorMessage,
                                 fontSize = 12.sp,
-                                color = Color(0xFFEF4444)
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -287,7 +286,7 @@ fun QuickAiEntryBottomSheet(
                         .background(
                             if (isBtnActive) {
                                 Brush.horizontalGradient(
-                                    listOf(Color(0xFF8B5CF6), Color(0xFF3B82F6))
+                                    listOf(liquid.accent, Color(0xFF3B82F6))
                                 )
                             } else {
                                 Brush.horizontalGradient(

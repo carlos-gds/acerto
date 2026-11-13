@@ -33,7 +33,9 @@ object DebtMessageFormatter {
         selectedMonth: Int? = null,
         selectedYear: Int? = null,
         notesByExpenseId: Map<Long, String> = emptyMap(),
-        targetPersonId: Long? = null
+        targetPersonId: Long? = null,
+        /** Chave PIX do usuário; quando preenchida, entra no texto antes do fechamento. */
+        pixKey: String? = null
     ): String {
         val trimmedName = personName.trim()
         val greeting = if (trimmedName.isBlank() || trimmedName.equals("Desconhecido", ignoreCase = true)) {
@@ -117,6 +119,9 @@ object DebtMessageFormatter {
         }
 
         val closing = "Quando puder, me avise sobre o pagamento. Obrigado!"
+        // Chave PIX do usuário (Ajustes), só quando há valor pendente
+        val pixSection = pixKey?.trim()?.takeIf { it.isNotEmpty() && pendingAmount > 0 }
+            ?.let { "Para pagar via PIX:\nChave PIX: $it" }
 
         return buildString {
             append(greeting)
@@ -130,6 +135,10 @@ object DebtMessageFormatter {
             append("\n")
             append(totalsSection)
             append("\n\n")
+            if (pixSection != null) {
+                append(pixSection)
+                append("\n\n")
+            }
             append(closing)
         }
     }
@@ -142,7 +151,8 @@ object DebtMessageFormatter {
         scope: DebtScope = DebtScope.ALL_TIME,
         selectedMonth: Int? = null,
         selectedYear: Int? = null,
-        notesByExpenseId: Map<Long, String> = emptyMap()
+        notesByExpenseId: Map<Long, String> = emptyMap(),
+        pixKey: String? = null
     ): String {
         return format(
             personName = group.personName,
@@ -151,7 +161,8 @@ object DebtMessageFormatter {
             selectedMonth = selectedMonth,
             selectedYear = selectedYear,
             notesByExpenseId = notesByExpenseId,
-            targetPersonId = group.personId
+            targetPersonId = group.personId,
+            pixKey = pixKey
         )
     }
 }
