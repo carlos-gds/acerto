@@ -1,100 +1,136 @@
+<div align="center">
+
+<img src="docs/icon.png" width="120" alt="Ícone do Acerto" />
+
 # Acerto
 
-Aplicativo Android para controlar compras parceladas feitas no cartão para outras pessoas e dividir despesas recorrentes com amigos ou familiares.
+**Controle quem te deve, sem planilha e sem constrangimento.**
 
-O **Acerto** mostra quanto cada pessoa deve no mês, acompanha parcelas pagas e pendentes, organiza contas compartilhadas e gera cobranças prontas (com chave PIX) para enviar pelo WhatsApp ou outro aplicativo.
+Compras parceladas no seu cartão para outras pessoas, contas divididas e cobranças prontas com PIX, tudo num app Android leve e bonito.
 
-> O projeto se chamava **Quem Me Deve**. Backups gerados com o nome antigo continuam sendo restaurados normalmente.
+<br/>
 
-## Download
+<a href="https://github.com/carlos-gds/acerto/releases/latest">
+  <img src="https://img.shields.io/badge/⬇%20Baixar%20APK-Android%207%2B-5B6CF0?style=for-the-badge&logo=android&logoColor=white" alt="Baixar APK" />
+</a>
 
-Baixe o APK mais recente na página de [Releases](https://github.com/carlos-gds/acerto/releases/latest). Requer Android 7.0 ou superior.
+<br/><br/>
 
-## Funcionalidades
+![Versão](https://img.shields.io/github/v/release/carlos-gds/acerto?style=flat-square&color=8B5CF6&label=vers%C3%A3o)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)
+![Room](https://img.shields.io/badge/Room-SQLite-3DDC84?style=flat-square&logo=sqlite&logoColor=white)
+![Min SDK](https://img.shields.io/badge/minSdk-24-F59E0B?style=flat-square&logo=android&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-73%20passando-10B981?style=flat-square&logo=junit5&logoColor=white)
+![Offline](https://img.shields.io/badge/dados-100%25%20no%20aparelho-EC4899?style=flat-square)
 
-### Navegação
+</div>
 
-- Barra inferior com quatro abas: **Início**, **Cartão**, **Cobranças** e **Ajustes**.
-- A barra se esconde ao rolar a lista e volta ao rolar para cima.
-- Botão flutuante com atalhos para nova compra no cartão, nova conta dividida e entrada rápida com IA.
+---
 
-### Controle financeiro
+## 📱 Telas
 
-- Resumo do mês com total, valor pago e valor pendente.
-- **Seleção automática do mês**: ao abrir, o app mostra o mês mais antigo com parcelas pendentes de outras pessoas (com o aviso "Pendências"). Se não houver nenhuma, mostra o mês atual. Ao trocar de mês manualmente, a escolha é respeitada.
-- Compras parceladas com progresso de parcelas pagas e pendentes.
-- Dívidas agrupadas por pessoa, com marcação individual de parcelas.
-- Controle da parte do usuário em contas divididas.
-- Edição e exclusão de lançamentos.
-- Campos de valor tolerantes: aceitam `1.234,56`, `R$ 50`, `1.500` e formatos parecidos.
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home_dark.jpg" width="230" alt="Início no tema escuro" /><br/><sub><b>Início</b> · tema escuro</sub></td>
+    <td align="center"><img src="docs/screenshots/home_light.jpg" width="230" alt="Início no tema claro" /><br/><sub><b>Início</b> · tema claro</sub></td>
+    <td align="center"><img src="docs/screenshots/cartao_dark.jpg" width="230" alt="Compras no cartão" /><br/><sub><b>Cartão</b> · compras parceladas</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/cobrancas_dark.jpg" width="230" alt="Cobranças" /><br/><sub><b>Cobranças</b> · quem deve e quanto</sub></td>
+    <td align="center"><img src="docs/screenshots/ajustes_light.jpg" width="230" alt="Ajustes" /><br/><sub><b>Ajustes</b> · tema, privacidade, PIX</sub></td>
+    <td align="center" valign="middle">
+      <h3>✨ Liquid Glass</h3>
+      <sub>Vidro translúcido com<br/>blur real no Android 12+<br/>e progressivo no 13+</sub>
+    </td>
+  </tr>
+</table>
+</div>
 
-### Pessoas
+---
 
-- Cadastro com nome, telefone (formatado automaticamente) e cor.
-- **Avatar** neutro, masculino ou feminino, escolhido no cadastro ou trocado com um toque no avatar da lista.
-- Avatar e cor aparecem nos cards de dívida e na tela de cobranças.
+## ✨ O que o Acerto faz
 
-### Contas compartilhadas
+| | Recurso | Como funciona |
+|:-:|---|---|
+| 💳 | **Compras no cartão** | Registre a compra parcelada feita para alguém e acompanhe parcela por parcela. |
+| 🧾 | **Contas divididas** | Água, luz, internet, aluguel, assinaturas: em partes iguais ou valores personalizados. |
+| 🗓️ | **Mês inteligente** | Ao abrir, o app vai direto para o mês mais antigo com pendências. |
+| 👥 | **Pessoas com avatar** | Cor, telefone formatado e avatar neutro, masculino ou feminino. |
+| 💸 | **Cobrança com PIX** | Gera o resumo do mês com a sua chave PIX e envia pelo WhatsApp. |
+| ⚡ | **Entrada rápida com IA** | Escreva *"Tênis de 300 em 3x para o Lucas"* e confirme. |
+| 🔍 | **Pesquisa e filtros** | Por pessoa ou compra, com filtros de pendentes e quitadas. |
+| 🙈 | **Modo privacidade** | Esconde os valores da tela e pede confirmação antes de compartilhar. |
+| 💾 | **Backup em JSON** | Exporte e restaure quando quiser, inclusive backups antigos. |
+| 🌗 | **Tema claro e escuro** | Troca com animação circular. |
 
-- Divisão em partes iguais ou valores personalizados.
-- Suporte a despesas como água, energia, internet, aluguel e assinaturas.
-- Opção de incluir ou não a parte do próprio usuário.
-- Atualização das parcelas relacionadas quando uma conta é editada.
+---
 
-### Cobranças e PIX
+## 🎨 Interface
 
-- Texto de cobrança por pessoa, com as parcelas do mês e o total pendente.
-- **Chave PIX** configurável em Ajustes (CPF, celular, e-mail, CNPJ ou chave aleatória). Ela é incluída automaticamente no texto quando há valor pendente.
-- Compartilhamento pelo seletor nativo do Android.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-### Pesquisa e histórico
+### 🪟 Blur adaptativo, um só APK
 
-- Pesquisa por pessoa ou título da compra.
-- Filtros por situação: todas, pendentes e quitadas.
-- Histórico mensal com total, valor pago, valor pendente e quantidade de parcelas.
+| Android | Efeito |
+|---|---|
+| 🟢 **13+** | Blur progressivo |
+| 🔵 **12** | Blur real nas superfícies e diálogos |
+| 🟡 **7 a 11** | Vidro translúcido, sem blur |
 
-### Entrada rápida com IA
+Também desliga o blur sozinho em aparelhos com pouca memória ou no modo de economia de bateria.
 
-A entrada rápida aceita descrições em linguagem natural, por exemplo:
+</td>
+<td width="50%" valign="top">
 
-```text
-Tênis de 300 em 3x para o Lucas
-Panela em 9x para minha mãe, começando há 5 meses
-```
+### 🎬 Microanimações
 
-O aplicativo extrai título, valor, quantidade de parcelas, pessoa e período de início. Antes de salvar, os dados aparecem para confirmação e edição.
+- 🫧 Toque com efeito de mola
+- 📋 Listas que entram em cascata
+- 🔢 Valores que contam até o número
+- 〰️ Campo que "treme" no erro
+- ✅ Avisos com check animado
+- ♿ Movimento reduzido respeitado
 
-A integração usa a API Gemini quando há conexão e chave configurada. Para entradas simples, existe um fallback local que funciona sem IA.
+</td>
+</tr>
+</table>
 
-### Privacidade, backup e segurança dos dados
+---
 
-- Modo de privacidade para ocultar valores na tela, com confirmação extra antes de compartilhar.
-- Backup local em JSON pelo seletor de arquivos do Android, incluindo o avatar das pessoas.
-- Restauração com validação estrutural e transação atômica.
-- Operações de vários passos (criar, editar e excluir compras, contas e pessoas) rodam em transações do Room: gravam tudo ou nada.
+## 🚀 Instalação
 
-## Interface
+1. Baixe o **`Acerto-v1.0.apk`** na página de [**Releases**](https://github.com/carlos-gds/acerto/releases/latest).
+2. Abra o arquivo no celular e permita *instalar apps de fontes desconhecidas*, se o Android pedir.
+3. Pronto: requer **Android 7.0** ou superior.
 
-- Identidade visual **Liquid Glass**, com tokens vindos de um protótipo no Figma, nos temas claro e escuro. A troca de tema tem animação.
-- **Blur adaptativo** num único APK:
-  - Android 12 ou superior: desfoque real nas superfícies de vidro e atrás dos diálogos.
-  - Android 13 ou superior: desfoque progressivo.
-  - Android 7 a 11, aparelhos com pouca memória ou em economia de bateria: vidro translúcido sem desfoque.
-- Microanimações: resposta ao toque com mola, entrada escalonada de listas, valores que contam até o número final, tremida nos campos com erro e avisos com ✓.
-- Animações reduzidas quando o sistema pede menos movimento.
-- Tela de abertura nativa no Android 12+ e equivalente nas versões anteriores.
+> [!NOTE]
+> O APK de teste é assinado com chave de debug. Se uma versão futura vier com outra assinatura, faça um backup pelo app e desinstale esta antes.
 
-## Tecnologias
+---
 
-- Kotlin, Jetpack Compose e Material 3.
-- Room Database, com migrations versionadas e esquema exportado em `app/schemas`.
-- Coroutines e Flow.
-- Arquitetura MVVM com Repository pattern.
-- Gemini API (via OkHttp) para a entrada rápida.
-- Gradle Version Catalog e Gradle Wrapper.
-- JUnit, Robolectric, Compose UI Test e Roborazzi.
+## 🛠️ Para desenvolvedores
 
-## Arquitetura do projeto
+<details>
+<summary><b>Tecnologias</b></summary>
+
+<br/>
+
+- **Kotlin** + **Jetpack Compose** + **Material 3**
+- **Room** com migrations versionadas e esquema exportado em `app/schemas`
+- **Coroutines** e **Flow**
+- **MVVM** com Repository pattern
+- **Gemini API** (via OkHttp) para a entrada rápida
+- **Gradle Wrapper** e Version Catalog
+- **JUnit**, **Robolectric**, **Compose UI Test** e **Roborazzi**
+
+</details>
+
+<details>
+<summary><b>Estrutura do projeto</b></summary>
 
 ```text
 app/src/main/java/com/example/
@@ -103,109 +139,86 @@ app/src/main/java/com/example/
 │   ├── db/           # Room Database, DAOs e migrations
 │   ├── model/        # Entidades e modelos de domínio
 │   ├── repository/   # Regras de acesso e operações financeiras
-│   └── service/      # Integrações externas, incluindo Gemini
+│   └── service/      # Integrações externas (Gemini)
 ├── ui/
 │   ├── components/   # Cards, diálogos, barra inferior, avatares
-│   │   └── glass/    # Componentes Liquid Glass, blur e animações
+│   │   └── glass/    # Liquid Glass, blur e animações
 │   ├── screens/      # Início, Cobranças e Ajustes
-│   ├── theme/        # Cores, tokens Liquid Glass, tipografia e medidas
-│   └── viewmodel/    # Estado da interface e ações de negócio
-└── util/             # Dinheiro, telefone, PIX, mês automático e compartilhamento
+│   ├── theme/        # Cores, tokens, tipografia e medidas
+│   └── viewmodel/    # Estado da interface e ações
+└── util/             # Dinheiro, telefone, PIX, mês automático
 ```
 
-Os valores financeiros são armazenados no Room em centavos (`Long`). A conversão para reais acontece na apresentação, o que evita erros de arredondamento de `Double`.
+Os valores ficam no banco em **centavos (`Long`)**. A conversão para reais acontece só na tela, o que evita erros de arredondamento.
 
-### Versões do banco
-
-| Versão | Mudança |
-| --- | --- |
+| Versão do banco | Mudança |
+|:-:|---|
 | 1 | Esquema inicial (valores em `REAL`) |
 | 2 | Valores convertidos para centavos (`INTEGER`) |
 | 3 | Coluna `avatar` em `people` (padrão `NEUTRAL`) |
 
-## Pré-requisitos
+</details>
 
-- Windows, macOS ou Linux.
-- Android Studio Ladybug ou posterior.
-- JDK 17 ou superior. O JDK que vem com o Android Studio serve.
-- Android SDK com API 36 para compilação.
-- Emulador ou dispositivo com Android 7.0 (API 24) ou superior.
+<details>
+<summary><b>Compilar e testar</b></summary>
 
-## Como executar
+<br/>
 
-1. Clone este repositório ou abra a pasta do projeto no Android Studio.
-2. Aguarde a sincronização do Gradle.
-3. Selecione um emulador ou conecte um dispositivo com depuração USB habilitada.
-4. Execute a configuração `app` pelo botão **Run**.
-
-Pelo terminal, use o Gradle Wrapper incluído no projeto:
+Pré-requisitos: Android Studio Ladybug ou posterior, JDK 17+ (o do Android Studio serve) e Android SDK com API 36.
 
 ```bash
 ./gradlew :app:assembleDebug
 ./gradlew :app:testDebugUnitTest
 ```
 
-No Windows (PowerShell ou cmd), use `gradlew.bat` no lugar de `./gradlew`.
+No Windows, use `gradlew.bat` no lugar de `./gradlew`.
 
-O projeto também contém testes instrumentados em `app/src/androidTest`.
+</details>
 
-## Configuração da API Gemini
+<details>
+<summary><b>Chave da API Gemini (opcional)</b></summary>
 
-A chave da API não deve ser commitada. O projeto usa o Secrets Gradle Plugin.
+<br/>
+
+Sem chave, a entrada rápida usa um leitor local, mais simples. Para usar a IA:
 
 1. Copie `.env.example` para `.env`.
-2. Substitua o valor de exemplo:
+2. Preencha `GEMINI_API_KEY=sua_chave_aqui`.
 
-```env
-GEMINI_API_KEY=sua_chave_aqui
-```
+O `.env` está no `.gitignore`. A chave é enviada no cabeçalho `x-goog-api-key`, nunca na URL.
 
-O arquivo `.env` está no `.gitignore`. A chave é enviada no cabeçalho `x-goog-api-key`, nunca na URL.
+> [!WARNING]
+> A chave fica embutida no APK. Use uma chave restrita ao app no Google Cloud ou migre para o Firebase AI Logic antes de distribuir publicamente.
 
-> **Atenção:** a chave fica embutida no APK, e qualquer pessoa com o arquivo consegue extraí-la. Use uma chave restrita ao aplicativo no Google Cloud. Para distribuição pública, prefira migrar para o Firebase AI Logic, cuja dependência já está no projeto.
+</details>
 
-## Dados e segurança
+---
 
-O aplicativo funciona localmente, sem login e sem sincronização em nuvem. Os dados financeiros ficam no banco Room do dispositivo.
+## 🔒 Privacidade
 
-Os backups são arquivos JSON sob controle do usuário. A restauração valida os dados antes de substituir os registros e usa transação, o que preserva o banco em caso de falha.
+- 📵 Sem login, sem nuvem: **todos os dados ficam no seu aparelho**.
+- 🗂️ Backups são arquivos JSON que só você controla.
+- 🧱 Gravações de vários passos rodam em transação (tudo ou nada).
+- 🙈 Modo privacidade para usar o app em público.
 
-Nunca publique neste repositório:
+---
 
-- `.env`;
-- `local.properties`;
-- arquivos `.jks` ou `.keystore`;
-- tokens e chaves de API;
-- arquivos de backup contendo dados pessoais ou financeiros.
+## 🗺️ Próximos passos
 
-A assinatura de release lê o keystore e as senhas das variáveis de ambiente `KEYSTORE_PATH`, `STORE_PASSWORD` e `KEY_PASSWORD`.
+- [ ] ↩️ Desfazer exclusão de lançamentos
+- [ ] 🔔 Lembretes de parcelas próximas do vencimento
+- [ ] 📲 PIX copia e cola e QR Code na cobrança
+- [ ] ➗ Pagamento parcial de parcelas
+- [ ] 🔐 Bloqueio do app com biometria
+- [ ] ♿ Revisão de acessibilidade (TalkBack e fonte grande)
+- [ ] ✍️ Versão de release assinada
 
-## Limitações atuais
+---
 
-- Não há login nem sincronização entre dispositivos.
-- Não há backup automático em nuvem.
-- A entrada com Gemini depende de conexão e de uma chave válida. O fallback local tem capacidade limitada.
+<div align="center">
 
-## Roadmap
+<sub>Antigo <b>Quem Me Deve</b> · backups com o nome antigo continuam funcionando</sub>
 
-- Desfazer exclusão de lançamentos.
-- Lembretes de parcelas próximas do vencimento.
-- PIX copia e cola e QR Code na cobrança.
-- Pagamento parcial de parcelas.
-- Bloqueio do app com biometria.
-- Revisão de acessibilidade (TalkBack e fonte grande).
-- Versão de release assinada para distribuição.
+<sub>Licença ainda não definida: até lá, todos os direitos reservados.</sub>
 
-## Contribuição
-
-Antes de alterar o código:
-
-1. Crie uma branch específica para a mudança.
-2. Preserve as regras financeiras (centavos) e a compatibilidade do backup.
-3. Ao mudar o banco, crie uma migration e mantenha o esquema exportado em `app/schemas`.
-4. Execute os testes com `./gradlew :app:testDebugUnitTest`.
-5. Descreva no pull request o que foi alterado e como foi testado.
-
-## Licença
-
-A licença do projeto ainda não foi definida. Até que uma licença seja adicionada, o código deve ser tratado como **todos os direitos reservados**.
+</div>
