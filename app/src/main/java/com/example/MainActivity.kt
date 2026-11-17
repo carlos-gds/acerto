@@ -2,6 +2,15 @@ package com.example
 
 import android.graphics.Color as AndroidColor
 import android.os.Build
+import android.app.KeyguardManager
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
+import android.os.CancellationSignal
+import android.os.SystemClock
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.ui.screens.LockScreen
+import com.example.util.AppLock
+import com.example.util.MonthlyReminder
 import android.os.Bundle
 import android.view.animation.DecelerateInterpolator
 import androidx.activity.ComponentActivity
@@ -42,8 +51,68 @@ import com.example.ui.viewmodel.FinanceViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+  /** App bloqueado: mostra só a tela de desbloqueio, nunca o conteúdo. */
+  private var locked by mutableStateOf(false)
+  private var backgroundAt = 0L
+
+  // Android 7–9: tela de senha do próprio sistema
+  private val credentialLauncher =
+    registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+      if (result.resultCode == RESULT_OK) locked = false
+    }
+
+  private fun lockWanted() = AppLock.isEnabled(this) && AppLock.isAvailable(this)
+
+  override fun onStop() {
+    super.onStop()
+    backgroundAt = SystemClock.elapsedRealtime()
+  }
+
+  override fun onStart() {
+    super.onStart()
+    if (backgroundAt > 0 && lockWanted() &&
+      SystemClock.elapsedRealtime() - backgroundAt > AppLock.RELOCK_AFTER_MS
+    ) {
+      locked = true
+    }
+  }
+
+  private fun unlock() {
+    if (!lockWanted()) { locked = false; return }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val builder = BiometricPrompt.Builder(this)
+        .setTitle("Desbloquear o Acerto")
+        .setSubtitle("Use a digital, o rosto ou a senha do celular")
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        builder.setAllowedAuthenticators(
+          BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        )
+      } else {
+        @Suppress("DEPRECATION")
+        builder.setDeviceCredentialAllowed(true)
+      }
+      builder.build().authenticate(
+        CancellationSignal(),
+        mainExecutor,
+        object : BiometricPrompt.AuthenticationCallback() {
+          override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+            locked = false
+          }
+        }
+      )
+    } else {
+      val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+      @Suppress("DEPRECATION")
+      val intent = km.createConfirmDeviceCredentialIntent("Desbloquear o Acerto", "Use a senha do celular")
+      if (intent != null) credentialLauncher.launch(intent) else locked = false
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    locked = lockWanted()
+    // Lembrete mensal: garante o alarme agendado (ex.: depois de atualizar o app)
+    if (MonthlyReminder.isEnabled(this)) MonthlyReminder.schedule(this)
     enableEdgeToEdge()
 
     // Android 12+: saída animada da tela de abertura do sistema
@@ -86,7 +155,12 @@ class MainActivity : ComponentActivity() {
           modifier = Modifier.fillMaxSize(),
           color = MaterialTheme.colorScheme.background
         ) {
-          HomeScreen(viewModel = viewModel)
+          if (locked) {
+            LaunchedEffect(Unit) { unlock() }
+            LockScreen(onUnlock = { unlock() })
+          } else {
+            HomeScreen(viewModel = viewModel)
+          }
         }
       }
 

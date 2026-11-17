@@ -161,7 +161,9 @@ fun DebtsDetailScreen(
             selectedMonth = selectedMonth,
             selectedYear = selectedYear,
             notesByExpenseId = expenseNotesMap,
-            pixKey = com.example.util.PixKeyStore.get(context)
+            pixKey = com.example.util.PixKeyStore.get(context),
+            pixName = com.example.util.PixKeyStore.getName(context),
+            pixCity = com.example.util.PixKeyStore.getCity(context)
         )
         ShareIntentHelper.sharePlainText(
             context = context,

@@ -259,6 +259,39 @@ class FinanceRepository(
         installmentDao.updateInstallment(updated)
     }
 
+    /**
+     * Pagamento parcial: a parcela é dividida em duas linhas com o mesmo número —
+     * a parte paga (marcada como paga) e o restante (pendente). Totais, cobrança e
+     * backup continuam certos sem mudar o banco. Retorna false se o valor não couber.
+     */
+    suspend fun registerPartialPayment(installmentId: Long, paidCents: Long): Boolean = tx {
+        val item = installmentDao.getInstallmentById(installmentId) ?: return@tx false
+        if (item.isPaid || paidCents <= 0 || paidCents >= item.amount) return@tx false
+        installmentDao.updateInstallment(item.copy(amount = item.amount - paidCents))
+        installmentDao.insertInstallments(
+            listOf(item.copy(id = 0, amount = paidCents, isPaid = true, paidAt = System.currentTimeMillis()))
+        )
+        true
+    }
+
+    suspend fun getInstallmentExpenseId(installmentId: Long): Long? =
+        installmentDao.getInstallmentById(installmentId)?.expenseId
+
+    /** Foto da compra/conta e de todas as parcelas, para poder desfazer uma exclusão. */
+    data class ExpenseSnapshot(val expense: Expense, val installments: List<InstallmentItem>)
+
+    suspend fun snapshotExpense(expenseId: Long): ExpenseSnapshot? = tx {
+        val expense = expenseDao.getExpenseById(expenseId) ?: return@tx null
+        ExpenseSnapshot(expense, installmentDao.getInstallmentListByExpenseId(expenseId))
+    }
+
+    /** Desfaz a exclusão: volta a compra e as parcelas exatamente como estavam (mesmos ids). */
+    suspend fun restoreExpense(snapshot: ExpenseSnapshot): Unit = tx {
+        installmentDao.deleteByExpenseId(snapshot.expense.id)
+        expenseDao.insertExpense(snapshot.expense)
+        installmentDao.insertInstallments(snapshot.installments)
+    }
+
     suspend fun deleteExpense(expenseId: Long): Unit = tx {
         installmentDao.deleteByExpenseId(expenseId)
         expenseDao.deleteExpenseById(expenseId)

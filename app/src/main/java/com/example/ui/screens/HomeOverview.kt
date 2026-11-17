@@ -96,6 +96,13 @@ import com.example.util.ShareIntentHelper
  */
 
 private val CardShape = RoundedCornerShape(22.dp)
+
+/**
+ * Fonte do sistema grande (acessibilidade): a partir de 130% o layout empilha
+ * o que antes ficava lado a lado, como o iOS faz com Dynamic Type.
+ */
+@Composable
+private fun isLargeFont(): Boolean = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
 private val ButtonShape = RoundedCornerShape(14.dp)
 private val ListShape = RoundedCornerShape(20.dp)
 
@@ -214,21 +221,32 @@ fun HomeOverview(
                         onClick = onAddCardPurchase,
                         modifier = Modifier.fillMaxWidth().testTag("home_new_purchase_button")
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val split: @Composable (Modifier) -> Unit = { m ->
                         BigButton(
                             text = "Dividir conta",
                             icon = { Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = null) },
                             primary = false,
                             onClick = onAddSharedBill,
-                            modifier = Modifier.weight(1f).testTag("home_split_button")
+                            modifier = m.testTag("home_split_button")
                         )
+                    }
+                    val ai: @Composable (Modifier) -> Unit = { m ->
                         BigButton(
                             text = "Com IA",
                             icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
                             primary = false,
                             onClick = onAiEntry,
-                            modifier = Modifier.weight(1f).testTag("home_ai_button")
+                            modifier = m.testTag("home_ai_button")
                         )
+                    }
+                    if (isLargeFont()) {
+                        split(Modifier.fillMaxWidth())
+                        ai(Modifier.fillMaxWidth())
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            split(Modifier.weight(1f))
+                            ai(Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -346,7 +364,7 @@ private fun MonthRow(
                 transitionSpec = { textSwapTransform(reduced) },
                 label = "month_label"
             ) { (y, m, flags) ->
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         "${CurrencyFormatter.getMonthName(m)} $y",
                         style = MaterialTheme.typography.titleMedium,
@@ -556,20 +574,31 @@ private fun PersonRow(
                 .testTag("person_row_${group.personId}"),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val large = isLargeFont()
+            val amountText = CurrencyFormatter.format(if (paid) group.totalAmount else group.pendingAmount, isPrivacyMode)
+            val statusText = if (paid) "Pago" else "Pendente"
             PersonAvatarBadge(name = group.personName, colorHex = group.colorHex, avatar = group.avatar, size = 44.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(group.personName, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    CurrencyFormatter.format(if (paid) group.totalAmount else group.pendingAmount, isPrivacyMode),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = liquid.textPrimary
+                    group.personName, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary,
+                    maxLines = if (large) 2 else 1, overflow = TextOverflow.Ellipsis
                 )
-                Text(if (paid) "Pago" else "Pendente", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = statusColor)
+                Text(
+                    subtitle, style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary,
+                    maxLines = if (large) 2 else 1, overflow = TextOverflow.Ellipsis
+                )
+                if (large) {
+                    Text(amountText, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary)
+                    Text(statusText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = statusColor)
+                }
+            }
+            if (!large) {
+                Spacer(Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(amountText, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary)
+                    Text(statusText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = statusColor)
+                }
             }
             Spacer(Modifier.width(6.dp))
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = liquid.textSecondary.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
@@ -589,10 +618,19 @@ fun PersonMonthDetail(
     onTogglePayment: (InstallmentItem) -> Unit,
     onEditItem: (InstallmentItem) -> Unit,
     onDeleteItem: (InstallmentItem) -> Unit,
+    onPartialPayment: (InstallmentItem, Double) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val liquid = LocalLiquidGlassColors.current
     val context = LocalContext.current
+    var partialFor by remember { mutableStateOf<InstallmentItem?>(null) }
+    partialFor?.let { target ->
+        PartialPaymentDialog(
+            item = target,
+            onDismiss = { partialFor = null },
+            onConfirm = { amount -> partialFor = null; onPartialPayment(target, amount) }
+        )
+    }
     val reduced = rememberReducedMotion()
     var confirmPrivacyShare by remember { mutableStateOf(false) }
     // Nome curto vai inteiro ("Vó Maria"); nome longo, só o primeiro ("Cobrar Ana").
@@ -604,7 +642,9 @@ fun PersonMonthDetail(
             scope = DebtMessageFormatter.DebtScope.SELECTED_MONTH,
             selectedMonth = selectedMonth,
             selectedYear = selectedYear,
-            pixKey = PixKeyStore.get(context)
+            pixKey = PixKeyStore.get(context),
+            pixName = com.example.util.PixKeyStore.getName(context),
+            pixCity = com.example.util.PixKeyStore.getCity(context)
         )
         ShareIntentHelper.sharePlainText(context = context, text = text, chooserTitle = "Cobrar ${group.personName}")
     }
@@ -688,7 +728,8 @@ fun PersonMonthDetail(
                         showDivider = index > 0,
                         onToggle = { onTogglePayment(item) },
                         onEdit = { onEditItem(item) },
-                        onDelete = { onDeleteItem(item) }
+                        onDelete = { onDeleteItem(item) },
+                        onPartial = { partialFor = item }
                     )
                 }
             }
@@ -718,7 +759,8 @@ private fun InstallmentLine(
     showDivider: Boolean,
     onToggle: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onPartial: () -> Unit
 ) {
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
@@ -727,21 +769,39 @@ private fun InstallmentLine(
         if (showDivider) {
             Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(liquid.cardBorderSubtle))
         }
+        val large = isLargeFont()
+        if (large) {
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
+                Text(item.expenseTitle, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary)
+                Text(
+                    "Parcela ${item.installmentNumber} de ${item.totalInstallments}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = liquid.textSecondary
+                )
+                Text(
+                    CurrencyFormatter.format(Money.toReal(item.amount), isPrivacyMode),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = liquid.textSecondary
+                )
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 72.dp)
-                .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp)
+                .heightIn(min = if (large) 56.dp else 72.dp)
+                .padding(start = 16.dp, end = 4.dp, top = if (large) 4.dp else 12.dp, bottom = 12.dp)
                 .testTag("installment_line_${item.id}"),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(item.expenseTitle, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    "Parcela ${item.installmentNumber} de ${item.totalInstallments} · ${CurrencyFormatter.format(Money.toReal(item.amount), isPrivacyMode)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = liquid.textSecondary
-                )
+                if (!large) {
+                    Text(item.expenseTitle, style = MaterialTheme.typography.titleMedium, color = liquid.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "Parcela ${item.installmentNumber} de ${item.totalInstallments} · ${CurrencyFormatter.format(Money.toReal(item.amount), isPrivacyMode)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = liquid.textSecondary
+                    )
+                }
             }
             val interaction = remember { MutableInteractionSource() }
             val bg by animateColorAsState(
@@ -788,6 +848,9 @@ private fun InstallmentLine(
                     Icon(Icons.Default.MoreVert, contentDescription = "Mais opções", tint = liquid.textSecondary)
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (!item.isPaid) {
+                        DropdownMenuItem(text = { Text("Pagou uma parte") }, onClick = { menuOpen = false; onPartial() })
+                    }
                     DropdownMenuItem(text = { Text("Editar") }, onClick = { menuOpen = false; onEdit() })
                     DropdownMenuItem(
                         text = { Text("Excluir", color = MaterialTheme.colorScheme.error) },
@@ -797,4 +860,60 @@ private fun InstallmentLine(
             }
         }
     }
+}
+
+/** Diálogo do pagamento parcial: quanto a pessoa pagou desta parcela. */
+@Composable
+private fun PartialPaymentDialog(
+    item: InstallmentItem,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit
+) {
+    val liquid = LocalLiquidGlassColors.current
+    val total = Money.toReal(item.amount)
+    var text by remember { mutableStateOf("") }
+    val value = com.example.util.MoneyInput.parse(text)
+    val error = when {
+        text.isBlank() -> null
+        value == null || value <= 0.0 -> "Digite um valor válido"
+        value >= total -> "Para o valor inteiro, use Marcar pago"
+        else -> null
+    }
+    val canConfirm = value != null && value > 0.0 && value < total
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = liquid.sheetSurface,
+        title = { Text("Quanto foi pago?", style = MaterialTheme.typography.titleLarge, color = liquid.textPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "${item.expenseTitle}, parcela ${item.installmentNumber} de ${item.totalInstallments}: ${CurrencyFormatter.format(total)}. O que faltar continua pendente.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = liquid.textSecondary
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(14) },
+                    singleLine = true,
+                    label = { Text("Valor pago") },
+                    prefix = { Text("R$ ") },
+                    isError = error != null,
+                    supportingText = error?.let { { Text(it) } },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
+                    colors = com.example.ui.components.glass.liquidTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth().testTag("partial_payment_input")
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { value?.let(onConfirm) },
+                enabled = canConfirm,
+                modifier = Modifier.testTag("partial_payment_confirm")
+            ) { Text("Registrar", fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = liquid.textSecondary) } }
+    )
 }

@@ -3,6 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Bloqueio do app com digital/rosto ou senha do celular -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Lembrete mensal: notificação (Android 13+) e reagendar após reiniciar -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -24,6 +29,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".util.MonthlyReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="com.example.acerto.MONTHLY_REMINDER" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

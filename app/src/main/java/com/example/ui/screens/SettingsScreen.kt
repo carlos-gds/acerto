@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Group
@@ -133,6 +136,12 @@ fun SettingsScreen(
                     )
                 }
             )
+        }
+
+        SettingsGroup(title = "Segurança e lembretes") {
+            AppLockRow()
+            GlassDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            ReminderRow()
         }
 
         SettingsGroup(title = "Pessoas") {
@@ -255,7 +264,12 @@ private fun PixKeySetting() {
     val context = LocalContext.current
     val savedKey by PixKeyStore.rememberPixKey()
     var draft by remember(savedKey) { mutableStateOf(savedKey) }
-    val changed = draft.trim() != savedKey
+    var savedTick by remember { mutableStateOf(0) }
+    val savedName = remember(savedKey, savedTick) { PixKeyStore.getName(context) }
+    val savedCity = remember(savedKey, savedTick) { PixKeyStore.getCity(context) }
+    var nameDraft by remember(savedName) { mutableStateOf(savedName) }
+    var cityDraft by remember(savedCity) { mutableStateOf(savedCity) }
+    val changed = draft.trim() != savedKey || nameDraft.trim() != savedName || cityDraft.trim() != savedCity
     val keyType = PixKeyStore.describe(draft)
 
     Column(
@@ -304,6 +318,32 @@ private fun PixKeySetting() {
             colors = liquidTextFieldColors()
         )
 
+        OutlinedTextField(
+            value = nameDraft,
+            onValueChange = { nameDraft = it.take(40) },
+            modifier = Modifier.fillMaxWidth().testTag("settings_pix_name_input"),
+            singleLine = true,
+            label = { Text("Seu nome, como no banco") },
+            shape = LiquidShapes.field,
+            colors = liquidTextFieldColors()
+        )
+        OutlinedTextField(
+            value = cityDraft,
+            onValueChange = { cityDraft = it.take(30) },
+            modifier = Modifier.fillMaxWidth().testTag("settings_pix_city_input"),
+            singleLine = true,
+            label = { Text("Sua cidade") },
+            supportingText = {
+                Text(
+                    if (com.example.util.PixPayload.build(draft, nameDraft, cityDraft) != null)
+                        "A cobrança vai com o PIX copia e cola, já com o valor."
+                    else "Com nome e cidade, a cobrança leva também o PIX copia e cola."
+                )
+            },
+            shape = LiquidShapes.field,
+            colors = liquidTextFieldColors()
+        )
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
@@ -320,7 +360,11 @@ private fun PixKeySetting() {
                 }
             }
             Button(
-                onClick = { PixKeyStore.set(context, draft) },
+                onClick = {
+                    PixKeyStore.setReceiver(context, nameDraft, cityDraft)
+                    PixKeyStore.set(context, draft)
+                    savedTick++
+                },
                 enabled = changed,
                 shape = LiquidShapes.pill,
                 colors = ButtonDefaults.buttonColors(
@@ -329,11 +373,105 @@ private fun PixKeySetting() {
                 ),
                 modifier = Modifier.testTag("settings_pix_key_save")
             ) {
-                Text("Salvar chave", fontWeight = FontWeight.Bold)
+                Text("Salvar", fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 /** Ordem de entrada dos grupos de Ajustes (para o escalonamento). */
-private val SettingsGroupOrder = listOf("Aparência e privacidade", "Pessoas", "Cobrança", "Dados e segurança")
+private val SettingsGroupOrder = listOf("Aparência e privacidade", "Segurança e lembretes", "Pessoas", "Cobrança", "Dados e segurança")
+
+/** Bloquear o app com a digital/rosto ou a senha do celular. */
+@Composable
+private fun AppLockRow() {
+    val context = LocalContext.current
+    val available = remember(context) { com.example.util.AppLock.isAvailable(context) }
+    var enabled by com.example.util.AppLock.rememberEnabled()
+    SettingsRow(
+        icon = Icons.Default.Lock,
+        title = "Bloquear o app",
+        subtitle = when {
+            !available -> "Configure uma senha no celular para usar"
+            enabled -> "Pede digital ou senha ao abrir"
+            else -> "Desligado"
+        },
+        testTag = "settings_app_lock",
+        onClick = {
+            if (available) {
+                enabled = !enabled
+                com.example.util.AppLock.setEnabled(context, enabled)
+            }
+        },
+        trailing = {
+            Switch(
+                checked = enabled && available,
+                enabled = available,
+                onCheckedChange = {
+                    enabled = it
+                    com.example.util.AppLock.setEnabled(context, it)
+                },
+                colors = liquidSwitchColors()
+            )
+        }
+    )
+}
+
+/** Lembrete no dia 1 de cada mês, com um botão para ver um exemplo agora. */
+@Composable
+private fun ReminderRow() {
+    val liquid = LocalLiquidGlassColors.current
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var enabled by remember(context) { mutableStateOf(com.example.util.MonthlyReminder.isEnabled(context)) }
+    var showExampleAfterGrant by remember { mutableStateOf(false) }
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            enabled = true
+            com.example.util.MonthlyReminder.setEnabled(context, true)
+            if (showExampleAfterGrant) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                com.example.util.MonthlyReminder.showForCurrentMonth(context, force = true)
+            }
+        }
+        showExampleAfterGrant = false
+    }
+    fun turn(on: Boolean) {
+        if (on && !com.example.util.MonthlyReminder.canNotify(context)) {
+            permissionLauncher.launch("android.permission.POST_NOTIFICATIONS")
+        } else {
+            enabled = on
+            com.example.util.MonthlyReminder.setEnabled(context, on)
+        }
+    }
+    Column {
+        SettingsRow(
+            icon = Icons.Default.Notifications,
+            title = "Lembrete mensal",
+            subtitle = if (enabled) "Dia 1 às 9h: quanto falta receber" else "Desligado",
+            testTag = "settings_monthly_reminder",
+            onClick = { turn(!enabled) },
+            trailing = {
+                Switch(checked = enabled, onCheckedChange = { turn(it) }, colors = liquidSwitchColors())
+            }
+        )
+        if (enabled) {
+            TextButton(
+                onClick = {
+                    if (!com.example.util.MonthlyReminder.canNotify(context)) {
+                        showExampleAfterGrant = true
+                        permissionLauncher.launch("android.permission.POST_NOTIFICATIONS")
+                    } else {
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            com.example.util.MonthlyReminder.showForCurrentMonth(context, force = true)
+                        }
+                    }
+                },
+                modifier = Modifier.padding(start = 60.dp, bottom = 4.dp).testTag("settings_reminder_preview")
+            ) {
+                Text("Ver como fica agora", color = liquid.textPrimary, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}

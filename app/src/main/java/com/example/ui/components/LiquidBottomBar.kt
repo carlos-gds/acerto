@@ -192,7 +192,9 @@ private fun RowScope.BottomBarItem(
             Text(
                 text = tab.label,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = MaterialTheme.typography.labelSmall.fontSize *
+                        (1.3f / androidx.compose.ui.platform.LocalDensity.current.fontScale).coerceAtMost(1f)
                 ),
                 color = labelColor,
                 maxLines = 1,

@@ -276,11 +276,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             val expenseInstallments = installments.filter { it.expenseId == expense.id }
             if (expenseInstallments.isEmpty()) return@mapNotNull null
 
-            val totalCount = expenseInstallments.size
-            val paidCount = expenseInstallments.count { it.isPaid }
+            // Uma parcela pode estar dividida em partes (pagamento parcial): conta por número
+            val byNumber = expenseInstallments.groupBy { it.installmentNumber }
+            val totalCount = byNumber.size
+            val paidCount = byNumber.values.count { parts -> parts.all { it.isPaid } }
             val remainingCount = totalCount - paidCount
             val person = peopleMap[expense.personId]
-            val installmentAmount = expenseInstallments.firstOrNull()?.let { Money.toReal(it.amount) }
+            val installmentAmount = byNumber.values.firstOrNull()?.let { parts -> Money.toReal(parts.sumOf { it.amount }) }
                 ?: (Money.toReal(expense.totalAmount) / totalCount)
             val remainingAmount = expenseInstallments.filter { !it.isPaid }.sumOf { Money.toReal(it.amount) }
             val progress = if (totalCount > 0) paidCount.toFloat() / totalCount.toFloat() else 1f
@@ -332,6 +334,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     fun togglePayment(item: InstallmentItem) {
         viewModelScope.launch {
             repository.setInstallmentPaid(item.id, !item.isPaid)
+        }
+    }
+
+    /** Registra que a pessoa pagou só [amount] reais desta parcela. */
+    fun registerPartialPayment(item: InstallmentItem, amount: Double) {
+        viewModelScope.launch {
+            repository.registerPartialPayment(item.id, com.example.util.Money.fromReal(amount))
         }
     }
 
@@ -436,16 +445,30 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** Última exclusão, para o botão "Desfazer" do aviso. */
+    private var lastDeleted: FinanceRepository.ExpenseSnapshot? = null
+
     fun deleteExpense(expenseId: Long) {
         viewModelScope.launch {
+            lastDeleted = repository.snapshotExpense(expenseId)
             repository.deleteExpense(expenseId)
         }
     }
 
     fun deleteSingleInstallment(installmentId: Long) {
         viewModelScope.launch {
+            val expenseId = monthlyInstallments.value.firstOrNull { it.id == installmentId }?.expenseId
+                ?: repository.getInstallmentExpenseId(installmentId)
+            lastDeleted = expenseId?.let { repository.snapshotExpense(it) }
             repository.deleteSingleInstallment(installmentId)
         }
+    }
+
+    /** Desfaz a última exclusão (compra inteira ou parcela). */
+    fun undoLastDelete() {
+        val snapshot = lastDeleted ?: return
+        lastDeleted = null
+        viewModelScope.launch { repository.restoreExpense(snapshot) }
     }
 
     fun updateExpense(
@@ -515,7 +538,8 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     private val _isDarkMode = MutableStateFlow(prefs.getBoolean("is_dark_mode", false))
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
-    private val _isPrivacyMode = MutableStateFlow(false)
+    // Lembrado entre aberturas: quem liga a privacidade não quer os valores à mostra ao reabrir
+    private val _isPrivacyMode = MutableStateFlow(prefs.getBoolean("is_privacy_mode", false))
     val isPrivacyMode: StateFlow<Boolean> = _isPrivacyMode.asStateFlow()
 
     fun toggleDarkMode() {
@@ -531,6 +555,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun togglePrivacyMode() {
         _isPrivacyMode.value = !_isPrivacyMode.value
+        prefs.edit().putBoolean("is_privacy_mode", _isPrivacyMode.value).apply()
     }
 
     // Person Cards Expansion State (keyed by personId to survive scrolling and recomposition)

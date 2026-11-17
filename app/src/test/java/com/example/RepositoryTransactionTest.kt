@@ -72,6 +72,44 @@ class RepositoryTransactionTest {
     }
 
     @Test
+    fun desfazerExclusao_restauraCompraEParcelas() = runBlocking {
+        val id = repo.addCardPurchase("Fone", 300.0, ana(), 3, 2026, 1)
+        val first = db.installmentDao().getInstallmentListByExpenseId(id).first()
+        repo.setInstallmentPaid(first.id, true)
+        val snapshot = repo.snapshotExpense(id)!!
+        repo.deleteExpense(id)
+        assertNull(db.expenseDao().getExpenseById(id))
+
+        repo.restoreExpense(snapshot)
+        val back = db.installmentDao().getInstallmentListByExpenseId(id)
+        assertEquals(3, back.size)
+        assertEquals(snapshot.installments.map { it.id }.sorted(), back.map { it.id }.sorted())
+        assertEquals(true, back.first { it.id == first.id }.isPaid)
+    }
+
+    @Test
+    fun pagamentoParcial_divideParcelaSemMudarOTotal() = runBlocking {
+        val id = repo.addCardPurchase("Fone", 300.0, ana(), 3, 2026, 1)
+        val first = db.installmentDao().getInstallmentListByExpenseId(id).first { it.installmentNumber == 1 }
+        assertEquals(true, repo.registerPartialPayment(first.id, 4000)) // R$ 40 de R$ 100
+
+        val parts = db.installmentDao().getInstallmentListByExpenseId(id).filter { it.installmentNumber == 1 }
+        assertEquals(2, parts.size)
+        assertEquals(10000L, parts.sumOf { it.amount })
+        assertEquals(4000L, parts.single { it.isPaid }.amount)
+        assertEquals(6000L, parts.single { !it.isPaid }.amount)
+    }
+
+    @Test
+    fun pagamentoParcial_recusaValorInteiroOuZero() = runBlocking {
+        val id = repo.addCardPurchase("Fone", 300.0, ana(), 3, 2026, 1)
+        val first = db.installmentDao().getInstallmentListByExpenseId(id).first()
+        assertEquals(false, repo.registerPartialPayment(first.id, 10000))
+        assertEquals(false, repo.registerPartialPayment(first.id, 0))
+        assertEquals(3, db.installmentDao().getCountByExpenseId(id))
+    }
+
+    @Test
     fun repositorioSemBanco_continuaFuncionando() = runBlocking {
         val semTx = FinanceRepository(db.personDao(), db.expenseDao(), db.installmentDao())
         val id = semTx.addCardPurchase("Livro", 100.0, ana(), 2, 2026, 1)

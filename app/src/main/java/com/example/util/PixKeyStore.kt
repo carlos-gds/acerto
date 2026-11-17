@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalContext
 object PixKeyStore {
     private const val PREFS = "acerto_prefs"
     private const val KEY = "pix_key"
+    private const val KEY_NAME = "pix_name"
+    private const val KEY_CITY = "pix_city"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -26,6 +28,21 @@ object PixKeyStore {
         prefs(context).edit().putString(KEY, value.trim()).apply()
     }
 
+    /** Nome de quem recebe, como aparece no banco (vai no PIX copia e cola). */
+    fun getName(context: Context): String = prefs(context).getString(KEY_NAME, "").orEmpty().trim()
+
+    /** Cidade de quem recebe (vai no PIX copia e cola). */
+    fun getCity(context: Context): String = prefs(context).getString(KEY_CITY, "").orEmpty().trim()
+
+    fun setReceiver(context: Context, name: String, city: String) {
+        prefs(context).edit().putString(KEY_NAME, name.trim()).putString(KEY_CITY, city.trim()).apply()
+    }
+
+    /** Dados do PIX para a mensagem de cobrança. */
+    data class Info(val key: String, val name: String, val city: String)
+
+    fun info(context: Context) = Info(get(context), getName(context), getCity(context))
+
     /** Estado observável da chave (atualiza a UI quando a chave muda em Ajustes). */
     @Composable
     fun rememberPixKey(): State<String> {
@@ -34,7 +51,7 @@ object PixKeyStore {
         DisposableEffect(context) {
             val p = prefs(context)
             val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key == KEY) state.value = get(context)
+                if (key == KEY || key == KEY_NAME || key == KEY_CITY) state.value = get(context)
             }
             p.registerOnSharedPreferenceChangeListener(listener)
             onDispose { p.unregisterOnSharedPreferenceChangeListener(listener) }

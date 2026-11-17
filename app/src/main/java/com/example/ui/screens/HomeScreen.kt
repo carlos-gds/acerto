@@ -3,6 +3,9 @@ package com.example.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.ui.platform.LocalDensity
 import com.example.ui.components.glass.AcertoMotion
 import com.example.ui.components.glass.popIn
@@ -118,11 +121,7 @@ import com.example.ui.components.EditSharedBillDialog
 import com.example.ui.components.ExpenseListFilter
 import com.example.ui.components.ExpenseSearchFilterBar
 import com.example.ui.components.ManagePeopleDialog
-import com.example.ui.components.MonthlySummarySection
 import com.example.ui.components.MyShareItemCard
-import com.example.ui.components.PeopleDebtsEmptyState
-import com.example.ui.components.PeopleDebtsHeader
-import com.example.ui.components.PersonDebtCard
 import com.example.ui.components.QuickAiEntryBottomSheet
 import com.example.ui.components.SpeedDialFab
 import com.example.ui.components.glass.LiquidBackground
@@ -249,6 +248,21 @@ fun HomeScreen(
         themeScope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+        }
+    }
+    // Exclusão com "Desfazer": o aviso fica alguns segundos e restaura tudo se tocado
+    val notifyUndo: (String) -> Unit = { message ->
+        themeScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = "Desfazer",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoLastDelete()
+                notify("Exclusão desfeita")
+            }
         }
     }
     val revealProgress = remember { Animatable(0f) }
@@ -380,7 +394,12 @@ fun HomeScreen(
                                 }
                             },
                             onEditItem = { itemToEdit = it },
-                            onDeleteItem = { itemToDelete = it }
+                            onDeleteItem = { itemToDelete = it },
+                            onPartialPayment = { item, amount ->
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.registerPartialPayment(item, amount)
+                                notify("Pagamento de ${CurrencyFormatter.format(amount)} registrado")
+                            }
                         )
                     } else {
                         HomeOverview(
@@ -443,7 +462,7 @@ fun HomeScreen(
                                 isPrivacyMode = isPrivacyMode,
                                 onDeleteExpense = { id ->
                                     viewModel.deleteExpense(id)
-                                    notify("Compra excluída")
+                                    notifyUndo("Compra excluída")
                                 },
                                 emptyMessage = if (cardPurchases.isEmpty()) {
                                     "Nenhuma compra parcelada cadastrada"
@@ -566,8 +585,22 @@ fun HomeScreen(
                 Text(
                     text = data.visuals.message,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = liquid.textPrimary
+                    color = liquid.textPrimary,
+                    modifier = Modifier.weight(1f)
                 )
+                val action = data.visuals.actionLabel
+                if (action != null) {
+                    TextButton(
+                        onClick = { data.performAction() },
+                        modifier = Modifier.heightIn(min = 44.dp).testTag("snackbar_undo_button")
+                    ) {
+                        Text(
+                            action,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = if (liquid.isDark) androidx.compose.ui.graphics.Color(0xFFF0354B) else liquid.pillPrimaryBg
+                        )
+                    }
+                }
             }
         }
 
@@ -706,12 +739,12 @@ fun HomeScreen(
             onDeleteSingleInstallment = {
                 viewModel.deleteSingleInstallment(itemToDelete!!.id)
                 itemToDelete = null
-                notify("Parcela excluída")
+                notifyUndo("Parcela excluída")
             },
             onDeleteAllInstallments = {
                 viewModel.deleteExpense(itemToDelete!!.expenseId)
                 itemToDelete = null
-                notify("Lançamento excluído")
+                notifyUndo("Lançamento excluído")
             }
         )
     }
@@ -787,68 +820,6 @@ fun HomeScreen(
 
 
 /** Cabeçalho da Início: só título, busca e privacidade. */
-@Composable
-private fun HomeHeader(
-    isSearchOpen: Boolean,
-    isPrivacyMode: Boolean,
-    onSearchClick: () -> Unit,
-    onTogglePrivacy: () -> Unit,
-    isDarkMode: Boolean,
-    onToggleTheme: (Offset) -> Unit
-) {
-    var themeButtonCenter by remember { mutableStateOf(Offset.Unspecified) }
-    val liquid = LocalLiquidGlassColors.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(start = 20.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = buildAnnotatedString {
-                    append("Acerto")
-                    withStyle(SpanStyle(color = liquid.accent)) { append(".") }
-                },
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = liquid.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "Fatura Mensal",
-                style = MaterialTheme.typography.bodySmall,
-                color = liquid.textSecondary
-            )
-        }
-        GlassIconButton(
-            icon = if (isSearchOpen) Icons.Default.Close else Icons.Default.Search,
-            contentDescription = if (isSearchOpen) "Fechar pesquisa" else "Pesquisar",
-            onClick = onSearchClick,
-            accent = isSearchOpen,
-            modifier = Modifier.testTag("home_search_button")
-        )
-        GlassIconButton(
-            icon = if (isPrivacyMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-            contentDescription = if (isPrivacyMode) "Mostrar valores" else "Ocultar valores",
-            onClick = onTogglePrivacy,
-            accent = isPrivacyMode,
-            modifier = Modifier.testTag("toggle_privacy_button")
-        )
-        // Tema claro/escuro (a troca anima com revelação circular a partir deste botão)
-        GlassIconButton(
-            icon = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-            contentDescription = if (isDarkMode) "Alternar para Modo Claro" else "Alternar para Modo Escuro",
-            onClick = { onToggleTheme(themeButtonCenter) },
-            modifier = Modifier
-                .onGloballyPositioned { themeButtonCenter = it.boundsInRoot().center }
-                .testTag("home_theme_toggle_button")
-        )
-    }
-}
-
-/** Cabeçalho simples das abas (título com o ponto no acento + subtítulo). */
 @Composable
 private fun TabHeader(title: String, subtitle: String) {
     val liquid = LocalLiquidGlassColors.current

@@ -35,7 +35,10 @@ object DebtMessageFormatter {
         notesByExpenseId: Map<Long, String> = emptyMap(),
         targetPersonId: Long? = null,
         /** Chave PIX do usuário; quando preenchida, entra no texto antes do fechamento. */
-        pixKey: String? = null
+        pixKey: String? = null,
+        /** Nome e cidade de quem recebe: com eles, o texto leva também o PIX copia e cola. */
+        pixName: String? = null,
+        pixCity: String? = null
     ): String {
         val trimmedName = personName.trim()
         val greeting = if (trimmedName.isBlank() || trimmedName.equals("Desconhecido", ignoreCase = true)) {
@@ -121,7 +124,20 @@ object DebtMessageFormatter {
         val closing = "Quando puder, me avise sobre o pagamento. Obrigado!"
         // Chave PIX do usuário (Ajustes), só quando há valor pendente
         val pixSection = pixKey?.trim()?.takeIf { it.isNotEmpty() && pendingAmount > 0 }
-            ?.let { "Para pagar via PIX:\nChave PIX: $it" }
+            ?.let { key ->
+                val copiaECola = PixPayload.build(
+                    key = key,
+                    name = pixName.orEmpty(),
+                    city = pixCity.orEmpty(),
+                    amount = pendingAmount / 100.0
+                )
+                buildString {
+                    append("Para pagar via PIX:\nChave PIX: $key")
+                    if (copiaECola != null) {
+                        append("\n\nPIX copia e cola (já com o valor de ${CurrencyFormatter.format(pendingAmount)}):\n$copiaECola")
+                    }
+                }
+            }
 
         return buildString {
             append(greeting)
@@ -152,7 +168,9 @@ object DebtMessageFormatter {
         selectedMonth: Int? = null,
         selectedYear: Int? = null,
         notesByExpenseId: Map<Long, String> = emptyMap(),
-        pixKey: String? = null
+        pixKey: String? = null,
+        pixName: String? = null,
+        pixCity: String? = null
     ): String {
         return format(
             personName = group.personName,
@@ -162,7 +180,9 @@ object DebtMessageFormatter {
             selectedYear = selectedYear,
             notesByExpenseId = notesByExpenseId,
             targetPersonId = group.personId,
-            pixKey = pixKey
+            pixKey = pixKey,
+            pixName = pixName,
+            pixCity = pixCity
         )
     }
 }
