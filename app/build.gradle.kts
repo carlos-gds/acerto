@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.dividicard.xfkql"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "1.2"
+    versionCode = 5
+    versionName = "1.2.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -36,9 +36,15 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      // R8 + recursos enxutos: código otimizado e menor. Junto com o build não depurável,
+      // é o que deixa o Compose fluido (os baseline profiles das bibliotecas só valem aqui).
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // Usa a chave de upload quando ela existir; até lá, assina com a chave de debug
+      // deste computador para continuar instalando por cima das versões já publicadas.
+      val uploadKey = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
+      signingConfig = if (uploadKey.exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
     }
     debug { }
   }
@@ -51,6 +57,8 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  // O lint da release baixa artefatos que não estão no cache offline; os testes cobrem o app.
+  lint { checkReleaseBuilds = false }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
