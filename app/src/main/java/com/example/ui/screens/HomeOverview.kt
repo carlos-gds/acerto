@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -139,7 +140,8 @@ fun HomeOverview(
     val reduced = rememberReducedMotion()
     val totals = totalsOf(groups)
 
-    Column(modifier = modifier.fillMaxSize()) {
+    // statusBarsPadding: o conteúdo começa abaixo da barra de status (relógio, bateria)
+    Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
         // Cabeçalho: nome com o ponto vermelho da marca, busca e privacidade
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -631,7 +633,7 @@ fun PersonMonthDetail(
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp)
     ) {
         item(key = "back") {
