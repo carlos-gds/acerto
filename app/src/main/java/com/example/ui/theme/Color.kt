@@ -123,93 +123,100 @@ data class LiquidGlassColors(
     val shadowSpot: Color
 )
 
+// ==========================================
+// PALETA ACERTO (2026-11): Obsidian + Ice Grey + Racing Red como assinatura.
+// Seguindo o Apple HIG e o Taste Skill: superfícies sólidas, sem vidro,
+// sem degradê e sem sombra em repouso. O vermelho é só marca (botão
+// principal, aba ativa, ponto do nome); pendente é âmbar e pago é verde,
+// para o vermelho nunca parecer dívida.
+// ==========================================
+val AcertoObsidian = Color(0xFF111217)
+val AcertoIce = Color(0xFFEEF1F4)
+val AcertoIceFill = Color(0xFFE3E7EC)
+/** Vermelho de marca no claro: escurecido para texto branco passar AA (5,2:1). */
+val AcertoRedLight = Color(0xFFC8152B)
+/** Vermelho de marca no escuro: botão com texto branco ainda AA (4,7:1). */
+val AcertoRedDark = Color(0xFFE0243A)
+/** Vermelho para texto/ícone sobre o fundo escuro (4,8:1). */
+val AcertoRedOnDark = Color(0xFFF0354B)
+val AcertoDarkSurface = Color(0xFF1B1C22)
+val AcertoDarkFill = Color(0xFF26272E)
+
+private fun solid(color: Color) = Brush.verticalGradient(listOf(color, color))
+private val NoBrush = Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+
 val LiquidLightTokens = LiquidGlassColors(
     isDark = false,
-    background = LiquidLightBackground,
-    backgroundGradient = Brush.verticalGradient(
-        0f to LiquidLightBackgroundGlow,
-        0.25f to LiquidLightBackground,
-        1f to LiquidLightBackgroundEnd
-    ),
-    headerSurface = Color(0xB3FFFFFF),
-    cardSurface = LiquidLightCardSurface,
-    cardSurfaceVariant = LiquidLightCardSurfaceVariant,
-    cardBorder = LiquidLightBorder,
-    cardBorderSubtle = LiquidLightBorderSubtle,
-    textPrimary = LiquidLightTextPrimary,
-    textSecondary = LiquidLightTextSecondary,
-    textMuted = LiquidLightTextMuted,
-    pillPrimaryBg = LiquidLightPillDark,
-    pillPrimaryText = LiquidLightPillDarkText,
-    pillSecondaryBg = LiquidLightPillGlass,
-    pillSecondaryText = LiquidLightPillGlassText,
-    circleButtonBg = LiquidLightCircleBtn,
-    circleButtonBorder = LiquidLightBorder,
-    accentPaid = Color(0xFF047857),
-    accentPaidContainer = Color(0xFFD1FAE5),
-    accentPending = Color(0xFFB45309),
-    accentPendingContainer = Color(0xFFFEF3C7),
-    eyeActive = LiquidLightTextSecondary,
-    accent = Color(0xFF4F67E0),
-    accentGradient = Brush.linearGradient(listOf(LiquidAccentStrong, LiquidAccentEnd)),
-    heroGradient = Brush.verticalGradient(listOf(Color(0xF26075E0), Color(0xF2404FB0))),
-    heroText = Color(0xFFFFFFFF),
-    specularBorder = Brush.linearGradient(
-        listOf(Color(0xCCFFFFFF), Color(0x1A0F172A), Color(0x260F172A))
-    ),
-    glassHighlight = Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x00FFFFFF))),
-    dangerGradient = Brush.linearGradient(listOf(LiquidDangerStart, LiquidDangerEnd)),
-    bottomFade = Brush.verticalGradient(listOf(Color(0x00E7EAF2), LiquidLightBackgroundEnd)),
-    sheetSurface = Color(0xFFF7F8FC),
-    scrim = Color(0x660F172A),
-    shadowAmbient = Color(0x1A0F172A),
-    shadowSpot = Color(0x1F0F172A)
+    background = AcertoIce,
+    backgroundGradient = solid(AcertoIce),
+    headerSurface = Color.White,
+    cardSurface = Color.White,
+    cardSurfaceVariant = AcertoIceFill,
+    cardBorder = Color(0x1A111217),
+    cardBorderSubtle = Color(0x12111217),
+    textPrimary = AcertoObsidian,
+    textSecondary = Color(0xFF565C66),
+    textMuted = Color(0xFF5E6470),
+    pillPrimaryBg = AcertoRedLight,
+    pillPrimaryText = Color.White,
+    pillSecondaryBg = AcertoIceFill,
+    pillSecondaryText = AcertoObsidian,
+    circleButtonBg = AcertoIceFill,
+    circleButtonBorder = Color(0x00000000),
+    accentPaid = Color(0xFF1D7A45),
+    accentPaidContainer = Color(0xFFDDF1E5),
+    accentPending = Color(0xFF9A5B00),
+    accentPendingContainer = Color(0xFFFBEBD0),
+    eyeActive = Color(0xFF565C66),
+    accent = AcertoObsidian,
+    accentGradient = solid(AcertoRedLight),
+    heroGradient = solid(Color.White),
+    heroText = AcertoObsidian,
+    specularBorder = solid(Color(0x12111217)),
+    glassHighlight = NoBrush,
+    dangerGradient = solid(AcertoRedLight),
+    bottomFade = NoBrush,
+    sheetSurface = Color.White,
+    scrim = Color(0x66111217),
+    shadowAmbient = Color.Transparent,
+    shadowSpot = Color.Transparent
 )
 
 val LiquidDarkTokens = LiquidGlassColors(
     isDark = true,
-    background = LiquidDarkBackground,
-    backgroundGradient = Brush.verticalGradient(
-        0f to LiquidDarkBackgroundGlow,
-        0.22f to LiquidDarkBackground,
-        1f to LiquidDarkBackgroundEnd
-    ),
-    headerSurface = Color(0x1AFFFFFF),
-    cardSurface = LiquidDarkCardSurface,
-    cardSurfaceVariant = LiquidDarkCardSurfaceVariant,
-    cardBorder = LiquidDarkBorder,
-    cardBorderSubtle = LiquidDarkBorderSubtle,
-    textPrimary = LiquidDarkTextPrimary,
-    textSecondary = LiquidDarkTextSecondary,
-    textMuted = LiquidDarkTextMuted,
-    pillPrimaryBg = LiquidDarkPillDark,
-    pillPrimaryText = LiquidDarkPillDarkText,
-    pillSecondaryBg = LiquidDarkPillGlass,
-    pillSecondaryText = LiquidDarkPillGlassText,
-    circleButtonBg = LiquidDarkCircleBtn,
-    circleButtonBorder = LiquidDarkBorder,
-    accentPaid = Color(0xFF34D399),
-    accentPaidContainer = Color(0x2634D399),
-    accentPending = Color(0xFFFBBF24),
-    accentPendingContainer = Color(0x26FBBF24),
-    eyeActive = LiquidDarkTextSecondary,
-    accent = LiquidAccentBrand,
-    accentGradient = Brush.linearGradient(listOf(LiquidAccentStrong, LiquidAccentEnd)),
-    // Figma: acento de 85% (topo) a 3% (base) sobre o fundo obsidian, já composto.
-    heroGradient = Brush.verticalGradient(
-        listOf(Color(0xD9627AF0), Color(0x66506BE6), Color(0x14627AF0))
-    ),
-    heroText = Color(0xFFFFFFFF),
-    specularBorder = Brush.linearGradient(
-        listOf(Color(0x66FFFFFF), Color(0x14FFFFFF), Color(0x33FFFFFF))
-    ),
-    glassHighlight = Brush.verticalGradient(listOf(Color(0x1FFFFFFF), Color(0x05FFFFFF), Color(0x00FFFFFF))),
-    dangerGradient = Brush.linearGradient(listOf(LiquidDangerStart, LiquidDangerEnd)),
-    bottomFade = Brush.verticalGradient(listOf(Color(0x000E0E0E), LiquidDarkBackgroundEnd)),
-    sheetSurface = Color(0xFA161619),
-    scrim = Color(0x8C000000),
-    shadowAmbient = Color(0x1A000000),
-    shadowSpot = Color(0x66000000)
+    background = AcertoObsidian,
+    backgroundGradient = solid(AcertoObsidian),
+    headerSurface = AcertoDarkSurface,
+    cardSurface = AcertoDarkSurface,
+    cardSurfaceVariant = AcertoDarkFill,
+    cardBorder = Color(0x1AEEF1F4),
+    cardBorderSubtle = Color(0x12EEF1F4),
+    textPrimary = AcertoIce,
+    textSecondary = Color(0xFF9BA1AB),
+    textMuted = Color(0xFF8B919B),
+    pillPrimaryBg = AcertoRedDark,
+    pillPrimaryText = Color.White,
+    pillSecondaryBg = AcertoDarkFill,
+    pillSecondaryText = AcertoIce,
+    circleButtonBg = AcertoDarkFill,
+    circleButtonBorder = Color(0x00000000),
+    accentPaid = Color(0xFF4CC985),
+    accentPaidContainer = Color(0x264CC985),
+    accentPending = Color(0xFFF2B13C),
+    accentPendingContainer = Color(0x26F2B13C),
+    eyeActive = Color(0xFF9BA1AB),
+    accent = AcertoIce,
+    accentGradient = solid(AcertoRedDark),
+    heroGradient = solid(AcertoDarkSurface),
+    heroText = AcertoIce,
+    specularBorder = solid(Color(0x12EEF1F4)),
+    glassHighlight = NoBrush,
+    dangerGradient = solid(AcertoRedDark),
+    bottomFade = NoBrush,
+    sheetSurface = AcertoDarkSurface,
+    scrim = Color(0x99000000),
+    shadowAmbient = Color.Transparent,
+    shadowSpot = Color.Transparent
 )
 
 val LocalLiquidGlassColors = staticCompositionLocalOf { LiquidDarkTokens }

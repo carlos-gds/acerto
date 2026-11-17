@@ -66,7 +66,7 @@ import com.example.ui.theme.LiquidShapes
 import com.example.ui.theme.LocalLiquidGlassColors
 
 /** Azul mais intenso do FAB (glow e gradiente). */
-private val FabBlue = Color(0xFF3D5AFE)
+private val FabBlue = Color(0xFFC8152B) // vermelho de marca do Acerto
 
 @Composable
 fun SpeedDialFab(
@@ -208,19 +208,13 @@ fun SpeedDialFab(
                         .size(58.dp)
                         .pressScale(interaction, pressedScale = 0.92f)
                         .glow(FabBlue, radius = 56.dp) { glowIntensity.value }
-                        .shadow(
-                            elevation = 10.dp,
-                            shape = CircleShape,
-                            ambientColor = FabBlue,
-                            spotColor = FabBlue
-                        )
+
                         .clip(CircleShape)
                         // Android 12+: conteúdo de trás desfocado; o gradiente fica levemente translúcido
                         .liquidBackdropBlur(CircleShape, LiquidBlurDefaults.fab)
                         .background(
                             Brush.linearGradient(
-                                if (hasBackdrop) listOf(FabBlue.copy(alpha = 0.86f), LiquidAccentEnd.copy(alpha = 0.78f))
-                                else listOf(FabBlue, LiquidAccentEnd)
+                                listOf(FabBlue, FabBlue)
                             )
                         )
                         .background(liquid.glassHighlight)

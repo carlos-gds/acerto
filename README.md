@@ -33,17 +33,14 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/home_dark.jpg" width="230" alt="Início no tema escuro" /><br/><sub><b>Início</b> · tema escuro</sub></td>
-    <td align="center"><img src="docs/screenshots/home_light.jpg" width="230" alt="Início no tema claro" /><br/><sub><b>Início</b> · tema claro</sub></td>
-    <td align="center"><img src="docs/screenshots/cartao_dark.jpg" width="230" alt="Compras no cartão" /><br/><sub><b>Cartão</b> · compras parceladas</sub></td>
+    <td align="center"><img src="docs/screenshots/inicio_claro.jpg" width="230" alt="Início no tema claro" /><br/><sub><b>Início</b> · quanto falta receber</sub></td>
+    <td align="center"><img src="docs/screenshots/inicio_escuro.jpg" width="230" alt="Início no tema escuro" /><br/><sub><b>Início</b> · tema escuro</sub></td>
+    <td align="center"><img src="docs/screenshots/pessoa_claro.jpg" width="230" alt="Tela da pessoa" /><br/><sub><b>Pessoa</b> · marcar pago e cobrar</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/cobrancas_dark.jpg" width="230" alt="Cobranças" /><br/><sub><b>Cobranças</b> · quem deve e quanto</sub></td>
-    <td align="center"><img src="docs/screenshots/ajustes_light.jpg" width="230" alt="Ajustes" /><br/><sub><b>Ajustes</b> · tema, privacidade, PIX</sub></td>
-    <td align="center" valign="middle">
-      <h3>✨ Liquid Glass</h3>
-      <sub>Vidro translúcido com<br/>blur real no Android 12+<br/>e progressivo no 13+</sub>
-    </td>
+    <td align="center"><img src="docs/screenshots/cartao_escuro.jpg" width="230" alt="Compras no cartão" /><br/><sub><b>Cartão</b> · compras parceladas</sub></td>
+    <td align="center"><img src="docs/screenshots/pessoas_claro.jpg" width="230" alt="Pessoas" /><br/><sub><b>Pessoas</b> · histórico e detalhes</sub></td>
+    <td align="center"><img src="docs/screenshots/ajustes_escuro.jpg" width="230" alt="Ajustes" /><br/><sub><b>Ajustes</b> · tema, privacidade, PIX</sub></td>
   </tr>
 </table>
 </div>
@@ -73,31 +70,38 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 <tr>
 <td width="50%" valign="top">
 
-### 🪟 Blur adaptativo, um só APK
+### 🎯 Uma pergunta por tela
 
-| Android | Efeito |
-|---|---|
-| 🟢 **13+** | Blur progressivo |
-| 🔵 **12** | Blur real nas superfícies e diálogos |
-| 🟡 **7 a 11** | Vidro translúcido, sem blur |
+A Início responde **"quanto falta receber este mês, e de quem?"**. O maior bloco é esse número; logo abaixo vêm as ações e uma linha por pessoa. Tocar numa pessoa abre as parcelas dela, com **Marcar pago** e **Cobrar**.
 
-Também desliga o blur sozinho em aparelhos com pouca memória ou no modo de economia de bateria.
+Segue o **Apple HIG** (texto de 34/17/15/13, toque mínimo de 44 pt) e os princípios do **Taste Skill**: superfícies sólidas, sem vidro, sombra ou degradê.
 
 </td>
 <td width="50%" valign="top">
 
-### 🎬 Microanimações
+### 🎨 Cores com significado
 
-- 🫧 Toque com efeito de mola
-- 📋 Listas que entram em cascata
-- 🔢 Valores que contam até o número
-- 〰️ Campo que "treme" no erro
-- ✅ Avisos com check animado
-- ♿ Movimento reduzido respeitado
+| Cor | Uso |
+|---|---|
+| ⬛ **Obsidian** `#111217` | Fundo escuro e texto |
+| ⬜ **Ice** `#EEF1F4` | Fundo claro |
+| 🟥 **Vermelho** `#C8152B` | Só marca: Nova compra, aba ativa |
+| 🟧 **Âmbar** | Pendente |
+| 🟩 **Verde** | Pago |
 
 </td>
 </tr>
 </table>
+
+### 🎬 Movimento
+
+Transições inspiradas no [transitions.dev](https://transitions.dev): sair em 150 ms, entrar em 250 ms, curva *smooth-out* e deslocamentos curtos.
+
+- ↔️ Início e pessoa lado a lado
+- 🔢 Total que gira só nos dígitos que mudam
+- ✅ Check de sucesso ao marcar como pago
+- 🔤 Troca suave de mês e de status
+- ♿ Movimento reduzido do sistema respeitado
 
 ---
 
@@ -142,8 +146,8 @@ app/src/main/java/com/example/
 │   └── service/      # Integrações externas (Gemini)
 ├── ui/
 │   ├── components/   # Cards, diálogos, barra inferior, avatares
-│   │   └── glass/    # Liquid Glass, blur e animações
-│   ├── screens/      # Início, Cobranças e Ajustes
+│   │   └── glass/    # Superfícies, movimento e transições
+│   ├── screens/      # Início, pessoa, Pessoas e Ajustes
 │   ├── theme/        # Cores, tokens, tipografia e medidas
 │   └── viewmodel/    # Estado da interface e ações
 └── util/             # Dinheiro, telefone, PIX, mês automático

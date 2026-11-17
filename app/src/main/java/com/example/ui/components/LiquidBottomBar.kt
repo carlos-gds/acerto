@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payments
@@ -61,7 +62,7 @@ import com.example.ui.theme.LocalLiquidGlassColors
 enum class AppTab(val label: String, val icon: ImageVector, val testTag: String) {
     HOME("Início", Icons.Default.Home, "bottom_nav_home"),
     CARD("Cartão", Icons.Default.CreditCard, "bottom_nav_card"),
-    DEBTS("Cobranças", Icons.Default.Payments, "bottom_nav_debts"),
+    DEBTS("Pessoas", Icons.Default.People, "bottom_nav_debts"),
     SETTINGS("Ajustes", Icons.Default.Settings, "bottom_nav_settings")
 }
 
@@ -81,12 +82,8 @@ fun LiquidBottomBar(
     // Android 12+ com blur: vidro bem transparente sobre o conteúdo desfocado (como no Figma).
     // Fallback (Android 7–11 ou blur desligado): base densa para o conteúdo de trás não poluir a barra.
     val hasBackdrop = LocalLiquidBackdrop.current != null
-    val barTint = when {
-        hasBackdrop && liquid.isDark -> Color(0x660B0B0E)
-        hasBackdrop -> Color(0x80F7F8FC)
-        liquid.isDark -> Color(0xF00B0B0E)
-        else -> Color(0xF0F7F8FC)
-    }
+    // Visual Acerto: barra sólida (sem vidro), na cor das superfícies.
+    val barTint = liquid.headerSurface
 
     BoxWithConstraints(
         modifier = modifier
@@ -115,15 +112,8 @@ fun LiquidBottomBar(
                 .offset(x = indicatorOffset)
                 .width(itemWidth)
                 .fillMaxHeight()
-                .glow(LiquidAccent, radius = itemWidth * 0.7f) { 0.55f }
                 .clip(LiquidShapes.pill)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(LiquidAccent.copy(alpha = 0.38f), LiquidAccent.copy(alpha = 0.16f))
-                    )
-                )
-                .background(liquid.glassHighlight)
-                .border(1.dp, liquid.specularBorder, LiquidShapes.pill)
+                .background(liquid.cardSurfaceVariant)
         )
 
         Row(
@@ -156,12 +146,12 @@ private fun RowScope.BottomBarItem(
         label = "bottom_item_progress"
     )
     val labelColor by animateColorAsState(
-        targetValue = if (selected) liquid.textPrimary else liquid.textSecondary,
+        targetValue = if (selected) (if (liquid.isDark) Color(0xFFF0354B) else liquid.pillPrimaryBg) else liquid.textSecondary,
         label = "bottom_item_label"
     )
     val iconColor by animateColorAsState(
         targetValue = if (selected) {
-            if (liquid.isDark) Color(0xFFC7CFFF) else liquid.accent
+            if (liquid.isDark) Color(0xFFF0354B) else liquid.pillPrimaryBg
         } else {
             liquid.textSecondary
         },

@@ -71,6 +71,9 @@ fun rememberLiquidBlurLevel(): LiquidBlurLevel {
 }
 
 private fun detectBlurLevel(context: Context): LiquidBlurLevel {
+    // Visual Acerto (2026-11): sem vidro nem blur, seguindo o HIG e o Taste Skill.
+    // As superfícies agora são sólidas, então o blur só custaria desempenho.
+    if (BLUR_DISABLED) return LiquidBlurLevel.NONE
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return LiquidBlurLevel.NONE
     val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
     val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
@@ -81,6 +84,8 @@ private fun detectBlurLevel(context: Context): LiquidBlurLevel {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) LiquidBlurLevel.PROGRESSIVE
     else LiquidBlurLevel.BLUR
 }
+
+private const val BLUR_DISABLED = true
 
 /** Fonte do "fundo" que os vidros desfocam (o conteúdo das abas). */
 @Stable

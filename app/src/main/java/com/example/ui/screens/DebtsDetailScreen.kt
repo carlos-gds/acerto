@@ -101,11 +101,12 @@ import com.example.ui.components.glass.liquidFieldMotion
 import com.example.ui.components.glass.animatedMoney
 
 // Cores sobre o card de destaque (gradiente azul): iguais nos dois temas.
-private val DetailHeroTextSecondary = Color(0xD9FFFFFF)
-private val DetailHeroGlass = Color(0x24FFFFFF)
-private val DetailHeroGlassBorder = Color(0x33FFFFFF)
-private val DetailHeroPaid = Color(0xFF6EE7B7)
-private val DetailHeroPending = Color(0xFFFCD34D)
+// Cores do card de destaque derivadas do tema (visual Acerto: card sólido)
+private val DetailHeroTextSecondary: Color @Composable get() = LocalLiquidGlassColors.current.textSecondary
+private val DetailHeroGlass: Color @Composable get() = LocalLiquidGlassColors.current.cardSurfaceVariant
+private val DetailHeroGlassBorder: Color @Composable get() = Color.Transparent
+private val DetailHeroPaid: Color @Composable get() = LocalLiquidGlassColors.current.accentPaid
+private val DetailHeroPending: Color @Composable get() = LocalLiquidGlassColors.current.accentPending
 
 enum class DebtScopeFilter {
     SELECTED_MONTH,
@@ -241,7 +242,7 @@ fun DebtsDetailScreen(
 
                     Column(modifier = Modifier.padding(start = if (showBackButton) 0.dp else 8.dp)) {
                         Text(
-                            text = if (showBackButton) "Detalhamento de Dívidas" else "Cobranças",
+                            text = if (showBackButton) "Detalhamento de Dívidas" else "Pessoas",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                             color = liquid.textPrimary
                         )
@@ -441,7 +442,7 @@ fun DebtsDetailScreen(
                                             .fillMaxWidth(progress)
                                             .fillMaxHeight()
                                             .clip(LiquidShapes.pill)
-                                            .background(Color(0xE6FFFFFF))
+                                            .background(LocalLiquidGlassColors.current.accentPaid)
                                     )
                                 }
                                 Row(

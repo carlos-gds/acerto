@@ -119,20 +119,11 @@ fun LiquidBackground(
     content: @Composable BoxScope.() -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
-    val glow = liquid.accent.copy(alpha = if (liquid.isDark) 0.10f else 0.08f)
+    // Visual Acerto: fundo sólido, sem halo nem degradê.
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(liquid.backgroundGradient)
-            .drawBehind {
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(glow, Color.Transparent),
-                        center = Offset(size.width * 0.15f, 0f),
-                        radius = size.width * 0.9f
-                    )
-                )
-            },
+            .background(liquid.background),
         content = content
     )
 }

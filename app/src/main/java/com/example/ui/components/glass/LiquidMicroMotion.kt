@@ -119,8 +119,12 @@ fun Modifier.shakeOnChange(key: Any?): Modifier = composed {
  * Contador animado para valores em reais: rola do valor anterior até o novo.
  * Interpola em Double e termina exatamente no valor alvo (sem erro de centavos).
  */
+private const val MONEY_COUNTER_ENABLED = false
+
 @Composable
 fun animatedMoney(target: Double): Double {
+    // Valores não contam mais até o número: o número muda na hora (HIG: movimento só com propósito).
+    if (!MONEY_COUNTER_ENABLED) return target
     val reduced = rememberReducedMotion()
     var from by remember { mutableStateOf(target) }
     var to by remember { mutableStateOf(target) }

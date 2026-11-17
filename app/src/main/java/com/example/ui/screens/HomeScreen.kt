@@ -3,6 +3,8 @@ package com.example.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.platform.LocalDensity
+import com.example.ui.components.glass.AcertoMotion
 import com.example.ui.components.glass.popIn
 import androidx.compose.runtime.key
 import androidx.compose.material.icons.filled.CheckCircle
@@ -183,6 +185,9 @@ fun HomeScreen(
     var expenseListFilter by remember { mutableStateOf(ExpenseListFilter.ALL) }
     var itemToEdit by remember { mutableStateOf<InstallmentItem?>(null) }
     var itemToDelete by remember { mutableStateOf<InstallmentItem?>(null) }
+    // Pessoa aberta na Início (tela lado a lado); null = resumo do mês
+    var openPersonId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val pagePx = with(LocalDensity.current) { 12.dp.roundToPx() }
 
     val listStateHome = rememberLazyListState()
     val listStateCard = rememberLazyListState()
@@ -298,7 +303,8 @@ fun HomeScreen(
 
     // Voltar: fecha a busca da Início; em outras abas, volta para Início.
     // (A aba Cobranças trata o voltar no próprio BackHandler, via onBack.)
-    BackHandler(enabled = selectedTab == AppTab.HOME && isSearchOpen) { closeSearch() }
+    BackHandler(enabled = selectedTab == AppTab.HOME && openPersonId != null) { openPersonId = null }
+    BackHandler(enabled = selectedTab == AppTab.HOME && isSearchOpen && openPersonId == null) { closeSearch() }
     BackHandler(enabled = selectedTab == AppTab.CARD || selectedTab == AppTab.SETTINGS) {
         selectedTab = AppTab.HOME
     }
@@ -335,125 +341,79 @@ fun HomeScreen(
                 label = "tab_content"
             ) { tab ->
             when (tab) {
-                AppTab.HOME -> Column(modifier = Modifier.fillMaxSize()) {
-                    HomeHeader(
-                        isSearchOpen = isSearchOpen,
-                        isPrivacyMode = isPrivacyMode,
-                        onSearchClick = { if (isSearchOpen) closeSearch() else isSearchOpen = true },
-                        onTogglePrivacy = { viewModel.togglePrivacyMode() },
-                        isDarkMode = isDarkMode,
-                        onToggleTheme = requestThemeToggle
-                    )
-
-                    // Busca + filtros fixos no topo enquanto a busca estiver aberta
-                    AnimatedVisibility(visible = isSearchOpen) {
-                        ExpenseSearchFilterBar(
-                            query = expenseSearchQuery,
-                            onQueryChange = { expenseSearchQuery = it },
-                            selectedFilter = expenseListFilter,
-                            onFilterChange = { expenseListFilter = it },
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
-                        )
-                    }
-
-                    LazyColumn(
-                        state = listStateHome,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 20.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        // Mês (pílula compacta) + resumo, sem ações duplicadas
-                        item {
-                            MonthlySummarySection(
-                                selectedYear = selectedYear,
-                                selectedMonth = selectedMonth,
-                                summary = summary,
-                                isPrivacyMode = isPrivacyMode,
-                                onMonthSelected = { y, m -> viewModel.selectMonth(y, m) },
-                                onPreviousMonth = { viewModel.previousMonth() },
-                                onNextMonth = { viewModel.nextMonth() },
-                                onTogglePrivacy = { viewModel.togglePrivacyMode() },
-                                onAddCardPurchase = { showAddCardExpenseDialog = true },
-                                onAddSharedBill = { showAddSharedBillDialog = true },
-                                onOptionsClick = { showManagePeopleDialog = true },
-                                onOthersDebtClick = { selectedTab = AppTab.DEBTS },
-                                showPrivacyToggle = false,
-                                showQuickActions = false,
-                                pendingMonthHint = isShowingPendingMonth
-                            )
-                        }
-
-                        // Section Title: O que os outros devem neste mês
-                        item {
-                            PeopleDebtsHeader(
-                                onViewDetailsClick = { selectedTab = AppTab.DEBTS }
-                            )
-                        }
-
-                        if (filteredPersonGroups.isEmpty()) {
-                            item {
-                                PeopleDebtsEmptyState(
-                                    message = if (personGroups.isEmpty()) {
-                                        "Nenhuma compra ou conta de terceiros para este mês."
-                                    } else {
-                                        "Nenhum resultado encontrado para esta pesquisa."
-                                    }
-                                )
-                            }
+                AppTab.HOME -> AnimatedContent(
+                    targetState = openPersonId,
+                    transitionSpec = {
+                        // Page side-by-side (transitions.dev): 250 ms, poucos dp, curva smooth-out
+                        if (reducedMotion) {
+                            fadeIn(tween(0)) togetherWith fadeOut(tween(0))
                         } else {
-                            itemsIndexed(filteredPersonGroups, key = { _, g -> "person_group_${g.personId}" }) { index, group ->
-                                val isExpanded = homeExpandedCardStates[group.personId] ?: true
-                                PersonDebtCard(
-                                    modifier = Modifier
-                                        .animateItem()
-                                        .staggeredAppear("person_group_${group.personId}", index, appearTracker, !reducedMotion),
-                                    group = group,
-                                    selectedMonth = selectedMonth,
-                                    selectedYear = selectedYear,
-                                    isPrivacyMode = isPrivacyMode,
-                                    isExpanded = isExpanded,
-                                    onToggleExpanded = { viewModel.toggleHomePersonExpanded(group.personId) },
-                                    onTogglePayment = { item ->
-                                        val settlesMonth = !item.isPaid &&
-                                            group.pendingAmount - Money.toReal(item.amount) <= 0.001
-                                        haptics.performHapticFeedback(
-                                            if (settlesMonth) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove
-                                        )
-                                        viewModel.togglePayment(item)
-                                        if (settlesMonth) notify("${group.personName} quitou tudo neste mês 🎉")
-                                    },
-                                    onEditItem = { item -> itemToEdit = item },
-                                    onDeleteItem = { item -> itemToDelete = item }
+                            val forward = targetState != null
+                            val dir = if (forward) 1 else -1
+                            (fadeIn(tween(AcertoMotion.FAST, easing = AcertoMotion.SmoothOut)) +
+                                slideInHorizontally(tween(AcertoMotion.FAST, easing = AcertoMotion.SmoothOut)) { pagePx * dir })
+                                .togetherWith(
+                                    fadeOut(tween(AcertoMotion.QUICK)) +
+                                        slideOutHorizontally(tween(AcertoMotion.QUICK)) { -pagePx * dir }
                                 )
-                            }
                         }
-
-                        // Section: Minha Parte (Contas divididas que eu pago)
-                        if (filteredMyShareItems.isNotEmpty()) {
-                            item(key = "header_my_share") {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Minha Parte nas Contas Divididas",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = liquid.textPrimary,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
+                    },
+                    label = "home_pages"
+                ) { personId ->
+                    val openGroup = personId?.let { id -> personGroups.firstOrNull { it.personId == id } }
+                    if (openGroup != null) {
+                        PersonMonthDetail(
+                            group = openGroup,
+                            selectedYear = selectedYear,
+                            selectedMonth = selectedMonth,
+                            isPrivacyMode = isPrivacyMode,
+                            onBack = { openPersonId = null },
+                            onTogglePayment = { item ->
+                                val settlesMonth = !item.isPaid &&
+                                    openGroup.pendingAmount - Money.toReal(item.amount) <= 0.001
+                                haptics.performHapticFeedback(
+                                    if (settlesMonth) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove
+                                )
+                                viewModel.togglePayment(item)
+                                if (settlesMonth) {
+                                    notify("${openGroup.personName} pagou tudo de ${CurrencyFormatter.getMonthName(selectedMonth).lowercase()}")
+                                }
+                            },
+                            onEditItem = { itemToEdit = it },
+                            onDeleteItem = { itemToDelete = it }
+                        )
+                    } else {
+                        HomeOverview(
+                            selectedYear = selectedYear,
+                            selectedMonth = selectedMonth,
+                            isCurrentMonth = selectedYear == viewModel.currentYear && selectedMonth == viewModel.currentMonth,
+                            showingPendingMonth = isShowingPendingMonth,
+                            groups = filteredPersonGroups,
+                            myShareItems = filteredMyShareItems,
+                            isPrivacyMode = isPrivacyMode,
+                            isSearchOpen = isSearchOpen,
+                            hasSearchQuery = normalizedSearchQuery.isNotBlank() || expenseListFilter != ExpenseListFilter.ALL,
+                            listState = listStateHome,
+                            onPreviousMonth = { viewModel.previousMonth() },
+                            onNextMonth = { viewModel.nextMonth() },
+                            onTogglePrivacy = { viewModel.togglePrivacyMode() },
+                            onSearchClick = { if (isSearchOpen) closeSearch() else isSearchOpen = true },
+                            onAddCardPurchase = { showAddCardExpenseDialog = true },
+                            onAddSharedBill = { showAddSharedBillDialog = true },
+                            onAiEntry = { viewModel.openAiBottomSheet() },
+                            onOpenPerson = { openPersonId = it },
+                            onEditItem = { itemToEdit = it },
+                            onDeleteItem = { itemToDelete = it },
+                            searchBar = {
+                                ExpenseSearchFilterBar(
+                                    query = expenseSearchQuery,
+                                    onQueryChange = { expenseSearchQuery = it },
+                                    selectedFilter = expenseListFilter,
+                                    onFilterChange = { expenseListFilter = it },
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                             }
-
-                            itemsIndexed(filteredMyShareItems, key = { _, it -> "my_share_${it.id}" }) { index, item ->
-                                MyShareItemCard(
-                                    modifier = Modifier
-                                        .animateItem()
-                                        .staggeredAppear("my_share_${item.id}", index + 2, appearTracker, !reducedMotion),
-                                    item = item,
-                                    isPrivacyMode = isPrivacyMode,
-                                    onEdit = { itemToEdit = it },
-                                    onDelete = { itemToDelete = it }
-                                )
-                            }
-                        }
+                        )
                     }
                 }
 
@@ -543,7 +503,7 @@ fun HomeScreen(
                 exit = slideOutVertically(tween(220)) { it * 2 } + fadeOut(tween(160)),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 20.dp, end = 90.dp, bottom = 17.dp)
+                    .padding(start = 20.dp, end = if (selectedTab == AppTab.HOME) 20.dp else 90.dp, bottom = 17.dp)
             ) {
             LiquidBottomBar(
                 selectedTab = selectedTab,
@@ -555,13 +515,14 @@ fun HomeScreen(
                     ) {
                         isSearchOpen = true
                     }
+                    if (tab != AppTab.HOME || selectedTab == AppTab.HOME) openPersonId = null
                     selectedTab = tab
                 }
             )
             }
 
             // Expandable Speed Dial FAB with Auto-Hide and Darkened Backdrop (inalterado)
-            SpeedDialFab(
+            if (selectedTab != AppTab.HOME) SpeedDialFab(
                 listState = activeListState,
                 onAiEntryClick = { viewModel.openAiBottomSheet() },
                 onSharedBillClick = { showAddSharedBillDialog = true },

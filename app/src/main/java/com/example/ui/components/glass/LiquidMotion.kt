@@ -78,11 +78,15 @@ fun Modifier.pressScale(
  * Glow simulado: halo radial atrás do elemento (sem blur real, Android 7+).
  * [intensity] é lido na fase de desenho, então pode ser animado sem recompor.
  */
+private const val GLOW_DISABLED = true
+
 fun Modifier.glow(
     color: Color,
     radius: Dp = 28.dp,
     intensity: () -> Float = { 1f }
 ): Modifier = drawBehind {
+    // Sem brilhos no visual Acerto (Taste Skill reprova glow/sombra em repouso).
+    if (GLOW_DISABLED) return@drawBehind
     val alpha = intensity().coerceIn(0f, 1f)
     if (alpha <= 0.01f) return@drawBehind
     val r = radius.toPx()
@@ -110,12 +114,15 @@ fun rememberAppearTracker(): AppearTracker = remember { AppearTracker() }
  * Aparição progressiva de itens de lista: fade + subida curta, com atraso
  * escalonado pelo índice (limitado para não atrasar listas longas).
  */
+/** Listas em cascata desligadas: em tela de uso diário o movimento só atrasa a leitura. */
+private const val STAGGER_ENABLED = false
+
 fun Modifier.staggeredAppear(
     key: Any,
     index: Int,
     tracker: AppearTracker,
     enabled: Boolean = true
-): Modifier = composed {
+): Modifier = if (!STAGGER_ENABLED) this else composed {
     // Decidido uma vez por item: recomposições durante a animação não a interrompem.
     val shouldAnimate = remember(key) { enabled && key !in tracker.seen }
     if (!shouldAnimate) return@composed this

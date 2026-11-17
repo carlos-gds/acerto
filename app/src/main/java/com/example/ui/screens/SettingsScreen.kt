@@ -107,7 +107,7 @@ fun SettingsScreen(
             SettingsRow(
                 icon = Icons.Default.DarkMode,
                 title = "Tema escuro",
-                subtitle = if (isDarkMode) "Obsidian Liquid Glass ativo" else "Tema claro ativo",
+                subtitle = if (isDarkMode) "Tema escuro ativo" else "Tema claro ativo",
                 testTag = "theme_toggle_button",
                 onClick = onToggleTheme,
                 trailing = {

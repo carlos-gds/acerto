@@ -43,13 +43,14 @@ import com.example.util.CurrencyFormatter
 import com.example.ui.components.glass.animatedMoney
 
 // Cores sobre o card de destaque (gradiente azul): iguais nos dois temas.
-private val HeroTextSecondary = Color(0xD9FFFFFF)
-private val HeroTextMuted = Color(0xB3FFFFFF)
-private val HeroGlass = Color(0x24FFFFFF)
-private val HeroGlassBorder = Color(0x33FFFFFF)
-private val HeroPaid = Color(0xFF6EE7B7)
-private val HeroPending = Color(0xFFFCD34D)
-private val HeroOnWhite = Color(0xFF1E2A6B)
+// Cores do card de destaque derivadas do tema (visual Acerto: card sólido)
+private val HeroTextSecondary: Color @Composable get() = LocalLiquidGlassColors.current.textSecondary
+private val HeroTextMuted: Color @Composable get() = LocalLiquidGlassColors.current.textSecondary
+private val HeroGlass: Color @Composable get() = LocalLiquidGlassColors.current.cardSurfaceVariant
+private val HeroGlassBorder: Color @Composable get() = Color.Transparent
+private val HeroPaid: Color @Composable get() = LocalLiquidGlassColors.current.accentPaid
+private val HeroPending: Color @Composable get() = LocalLiquidGlassColors.current.accentPending
+private val HeroOnWhite: Color @Composable get() = LocalLiquidGlassColors.current.pillPrimaryText
 
 @Composable
 fun SummaryCard(
@@ -159,7 +160,7 @@ fun SummaryCard(
                         .fillMaxWidth(progress)
                         .fillMaxHeight()
                         .clip(LiquidShapes.pill)
-                        .background(Color(0xE6FFFFFF))
+                        .background(LocalLiquidGlassColors.current.accentPaid)
                 )
             }
         }
@@ -262,7 +263,7 @@ fun SummaryCard(
                         .weight(1f)
                         .height(44.dp)
                         .clip(LiquidShapes.pill)
-                        .background(Color(0xF2FFFFFF))
+                        .background(LocalLiquidGlassColors.current.pillPrimaryBg)
                         .clickable { onAddCardPurchase() }
                         .testTag("quick_action_add_purchase")
                         .padding(horizontal = 12.dp),
