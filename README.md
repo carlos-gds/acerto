@@ -21,7 +21,7 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)
 ![Room](https://img.shields.io/badge/Room-SQLite-3DDC84?style=flat-square&logo=sqlite&logoColor=white)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-F59E0B?style=flat-square&logo=android&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-86%20passando-10B981?style=flat-square&logo=junit5&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-97%20passando-10B981?style=flat-square&logo=junit5&logoColor=white)
 ![Offline](https://img.shields.io/badge/dados-100%25%20no%20aparelho-EC4899?style=flat-square)
 
 </div>
@@ -55,10 +55,11 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 | 🧾 | **Contas divididas** | Água, luz, internet, aluguel, assinaturas: em partes iguais ou valores personalizados. |
 | 🗓️ | **Mês inteligente** | Ao abrir, o app vai direto para o mês mais antigo com pendências. |
 | 👥 | **Pessoas com avatar** | Cor, telefone formatado e avatar neutro, masculino ou feminino. |
-| 💸 | **Cobrança com PIX** | Gera o resumo do mês com a sua chave PIX e o **PIX copia e cola** já com o valor, e envia pelo WhatsApp. |
+| 💸 | **Cobrança com PIX** | Envia pelo WhatsApp uma **imagem** com as parcelas e o total, e uma mensagem curta com seu nome, banco e chave PIX (o tipo da chave é detectado sozinho). |
+| 📈 | **Próximos meses** | Gráfico de quanto falta receber nos próximos 6 meses e, em cada pessoa, quando ela quita. |
 | ➗ | **Pagamento parcial** | A pessoa pagou só uma parte? Registre o valor e o restante continua pendente. |
 | ↩️ | **Desfazer exclusão** | Apagou sem querer? Toque em *Desfazer* no aviso. |
-| 🔔 | **Lembrete mensal** | No dia 1, às 9h, uma notificação mostra quanto falta receber. |
+| 🔔 | **Lembrete mensal** | No dia 1, ou 3 dias antes do vencimento da fatura, uma notificação mostra quanto falta receber. |
 | 🔐 | **Bloqueio do app** | Digital, rosto ou a senha do celular ao abrir. |
 | ⚡ | **Entrada rápida com IA** | Escreva *"Tênis de 300 em 3x para o Lucas"* e confirme. |
 | 🔍 | **Pesquisa e filtros** | Por pessoa ou compra, com filtros de pendentes e quitadas. |
@@ -215,11 +216,12 @@ O `.env` está no `.gitignore`. A chave é enviada no cabeçalho `x-goog-api-key
 
 - [x] ↩️ Desfazer exclusão de lançamentos
 - [x] 🔔 Lembrete mensal por notificação
-- [x] 📲 PIX copia e cola na cobrança
+- [x] 🖼️ Cobrança como imagem, com nome, banco e tipo da chave PIX
+- [x] 📈 Previsão dos próximos meses e data de quitação por pessoa
+- [x] 💳 Lembrete antes do vencimento da fatura
 - [x] ➗ Pagamento parcial de parcelas
 - [x] 🔐 Bloqueio do app com biometria ou senha
 - [x] ♿ Layout que se adapta à fonte grande do sistema
-- [ ] 🖼️ QR Code do PIX na cobrança
 - [ ] 🎨 Cartão, Pessoas e Ajustes no mesmo estilo da Início
 - [ ] 🤖 Entrada com IA via Firebase AI (sem chave no APK)
 - [ ] ✍️ Versão de release assinada

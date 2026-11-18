@@ -36,18 +36,21 @@ object DebtMessageFormatter {
         targetPersonId: Long? = null,
         /** Chave PIX do usuário; quando preenchida, entra no texto antes do fechamento. */
         pixKey: String? = null,
-        /** Nome e cidade de quem recebe: com eles, o texto leva também o PIX copia e cola. */
+        /** Nome de quem recebe (aparece em "Para:"). */
         pixName: String? = null,
+        /** Banco onde está a chave (só aparece no texto). */
+        pixBank: String? = null,
+        /** Não usado na mensagem (mantido por compatibilidade). */
         pixCity: String? = null
     ): String {
         val trimmedName = personName.trim()
         val greeting = if (trimmedName.isBlank() || trimmedName.equals("Desconhecido", ignoreCase = true)) {
-            "Olá!"
+            "Oi! 👋"
         } else {
-            "Olá, $trimmedName!"
+            "Oi, $trimmedName! 👋"
         }
 
-        // Strictly filter items: NEVER include user's own share ("isMyShare"), and ensure target person match
+        // Nunca inclui a "minha parte" e, se pedido, só a pessoa certa
         val validItems = items.filter { item ->
             !item.isMyShare && (targetPersonId == null || item.personId == targetPersonId)
         }.let { list ->
@@ -57,104 +60,75 @@ object DebtMessageFormatter {
                 list
             }
         }
+        val monthScope = scope == DebtScope.SELECTED_MONTH && selectedMonth != null && selectedYear != null
 
-        // Handle empty items case cleanly
         if (validItems.isEmpty()) {
-            val periodDesc = if (scope == DebtScope.SELECTED_MONTH && selectedMonth != null && selectedYear != null) {
-                "para ${CurrencyFormatter.getMonthName(selectedMonth)} de $selectedYear"
-            } else {
-                "no momento"
-            }
-            return buildString {
-                append(greeting)
-                append("\n\n")
-                append("Não há pendências registradas $periodDesc.")
-                append("\n\n")
-                append("Obrigado!")
-            }
+            val period = if (monthScope) "em ${CurrencyFormatter.getMonthName(selectedMonth!!).lowercase()} de $selectedYear" else "no momento"
+            return "$greeting\n\nVocê não tem nada pendente $period. 🎉"
         }
 
         val totalAmount = validItems.sumOf { it.amount }
         val paidAmount = validItems.filter { it.isPaid }.sumOf { it.amount }
         val pendingAmount = totalAmount - paidAmount
 
-        val scopeIntro = when (scope) {
-            DebtScope.SELECTED_MONTH -> {
-                if (selectedMonth != null && selectedYear != null) {
-                    val mName = CurrencyFormatter.getMonthName(selectedMonth)
-                    "Este é um resumo das suas pendências para $mName de $selectedYear:"
-                } else {
-                    "Este é um resumo das suas pendências do mês selecionado:"
-                }
-            }
-            DebtScope.ALL_TIME -> {
-                "Este é um resumo geral de todas as suas pendências acumuladas:"
-            }
+        // Mensagem curta: a imagem enviada junto já mostra o detalhe.
+        // "9 de 12" (e não "9/12") e sem o ano em cada linha, para o WhatsApp não virar tudo link.
+        val intro = if (monthScope) {
+            "Seu resumo de ${CurrencyFormatter.getMonthName(selectedMonth!!).lowercase()} 🧾"
+        } else {
+            "Seu resumo geral 🧾"
         }
 
-        val itemsLines = validItems.map { item ->
-            val mName = CurrencyFormatter.getMonthName(item.month)
-            val typePart = if (item.expenseType == ExpenseType.CARD_PURCHASE) {
-                "parcela ${item.installmentNumber}/${item.totalInstallments}"
+        fun line(item: InstallmentItem): String {
+            val parts = mutableListOf(item.expenseTitle.trim())
+            if (item.expenseType == ExpenseType.CARD_PURCHASE) {
+                if (item.totalInstallments > 1) {
+                    val last = if (item.installmentNumber == item.totalInstallments) " (última)" else ""
+                    parts += "${item.installmentNumber} de ${item.totalInstallments}$last"
+                }
             } else {
-                "conta compartilhada"
+                parts += "conta dividida"
             }
-            val amountFormatted = CurrencyFormatter.format(item.amount)
-            val periodPart = "$mName/${item.year}"
-            val statusPart = if (item.isPaid) "Pago" else "Pendente"
-
+            if (!monthScope) {
+                parts += "${CurrencyFormatter.getMonthShortName(item.month).lowercase()}/${item.year % 100}"
+            }
+            parts += CurrencyFormatter.format(item.amount) + if (item.isPaid) " ✅" else ""
             val note = notesByExpenseId[item.expenseId]?.trim()
-            val notePart = if (!note.isNullOrBlank()) " — Obs: $note" else ""
-
-            "• ${item.expenseTitle} — $typePart — $amountFormatted — $periodPart — $statusPart$notePart"
+            val notePart = if (!note.isNullOrBlank()) " (obs: $note)" else ""
+            return "• " + parts.joinToString(" · ") + notePart
         }
 
-        val totalsSection = buildString {
-            append("Total da dívida: ${CurrencyFormatter.format(totalAmount)}\n")
-            if (pendingAmount > 0.001) {
-                append("Total pendente: ${CurrencyFormatter.format(pendingAmount)}")
+        val ordered = validItems.sortedWith(compareBy<InstallmentItem> { it.isPaid }.thenBy { it.year * 12 + it.month })
+
+        val totals = buildString {
+            if (pendingAmount > 0) {
+                append("💰 *Falta pagar: ${CurrencyFormatter.format(pendingAmount)}*")
+                if (paidAmount > 0) append("\n✅ Já pago: ${CurrencyFormatter.format(paidAmount)}")
             } else {
-                append("Total pendente: ${CurrencyFormatter.format(0.0)} (Tudo quitado! 🎉)")
-            }
-            if (paidAmount > 0.001) {
-                append("\nTotal já pago: ${CurrencyFormatter.format(paidAmount)}")
+                append("🎉 Tudo pago! Total de ${CurrencyFormatter.format(totalAmount)}.")
             }
         }
 
-        val closing = "Quando puder, me avise sobre o pagamento. Obrigado!"
-        // Chave PIX do usuário (Ajustes), só quando há valor pendente
-        val pixSection = pixKey?.trim()?.takeIf { it.isNotEmpty() && pendingAmount > 0 }
-            ?.let { key ->
-                val copiaECola = PixPayload.build(
-                    key = key,
-                    name = pixName.orEmpty(),
-                    city = pixCity.orEmpty(),
-                    amount = pendingAmount / 100.0
-                )
-                buildString {
-                    append("Para pagar via PIX:\nChave PIX: $key")
-                    if (copiaECola != null) {
-                        append("\n\nPIX copia e cola (já com o valor de ${CurrencyFormatter.format(pendingAmount)}):\n$copiaECola")
-                    }
-                }
+        // PIX do usuário (Ajustes), só quando há valor pendente
+        val pixSection = pixKey?.trim()?.takeIf { it.isNotEmpty() && pendingAmount > 0 }?.let { key ->
+            buildString {
+                append("📲 *Pix*")
+                val who = listOfNotNull(pixName?.trim()?.takeIf { it.isNotEmpty() }, pixBank?.trim()?.takeIf { it.isNotEmpty() })
+                if (who.isNotEmpty()) append("\nPara: ${who.joinToString(" · ")}")
+                val type = PixPayload.detect(key)
+                val label = if (type == null || type == PixPayload.KeyType.OTHER) "Chave" else type.label
+                append("\n$label: ${PixPayload.displayKey(key)}")
             }
+        }
+
+        val closing = if (pendingAmount > 0) "Quando puder, me avisa por aqui. Obrigado! 🙏" else "Obrigado! 🙏"
 
         return buildString {
-            append(greeting)
-            append("\n\n")
-            append(scopeIntro)
-            append("\n")
-            itemsLines.forEach { line ->
-                append(line)
-                append("\n")
-            }
-            append("\n")
-            append(totalsSection)
-            append("\n\n")
-            if (pixSection != null) {
-                append(pixSection)
-                append("\n\n")
-            }
+            append(greeting).append("\n\n")
+            append(intro).append("\n")
+            ordered.forEach { append(line(it)).append("\n") }
+            append("\n").append(totals).append("\n\n")
+            if (pixSection != null) append(pixSection).append("\n\n")
             append(closing)
         }
     }
@@ -170,6 +144,7 @@ object DebtMessageFormatter {
         notesByExpenseId: Map<Long, String> = emptyMap(),
         pixKey: String? = null,
         pixName: String? = null,
+        pixBank: String? = null,
         pixCity: String? = null
     ): String {
         return format(
@@ -182,6 +157,7 @@ object DebtMessageFormatter {
             targetPersonId = group.personId,
             pixKey = pixKey,
             pixName = pixName,
+            pixBank = pixBank,
             pixCity = pixCity
         )
     }

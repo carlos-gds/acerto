@@ -163,6 +163,7 @@ fun DebtsDetailScreen(
             notesByExpenseId = expenseNotesMap,
             pixKey = com.example.util.PixKeyStore.get(context),
             pixName = com.example.util.PixKeyStore.getName(context),
+            pixBank = com.example.util.PixKeyStore.getBank(context),
             pixCity = com.example.util.PixKeyStore.getCity(context)
         )
         ShareIntentHelper.sharePlainText(
@@ -287,64 +288,50 @@ fun DebtsDetailScreen(
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = bottomContentPadding),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Scope Filter Tabs
+                // Período: segmentado (Este mês | Geral) e, no mês, as setas para navegar
                 item(key = "scope_filter_chips") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilterChip(
-                            selected = currentFilter == DebtScopeFilter.SELECTED_MONTH,
-                            onClick = { currentFilter = DebtScopeFilter.SELECTED_MONTH },
-                            label = {
-                                Text(
-                                    text = "Mês: ${CurrencyFormatter.getMonthShortName(selectedMonth)}/$selectedYear"
-                                )
-                            },
-                            shape = RoundedCornerShape(50),
-                            colors = liquidFilterChipColors(),
-                            modifier = Modifier.testTag("filter_selected_month")
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        com.example.ui.components.SegmentedControl(
+                            options = listOf("Mês", "Geral"),
+                            selectedIndex = if (currentFilter == DebtScopeFilter.SELECTED_MONTH) 0 else 1,
+                            onSelect = { currentFilter = if (it == 0) DebtScopeFilter.SELECTED_MONTH else DebtScopeFilter.ALL_TIME },
+                            testTagPrefix = "people_scope"
                         )
-
                         if (currentFilter == DebtScopeFilter.SELECTED_MONTH) {
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(
-                                    onClick = { viewModel.previousMonth() },
-                                    modifier = Modifier
-                                ) {
+                                IconButton(onClick = { viewModel.previousMonth() }, modifier = Modifier.testTag("filter_selected_month")) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                                         contentDescription = "Mês anterior",
-                                        tint = liquid.textPrimary,
-                                        modifier = Modifier.size(18.dp)
+                                        tint = liquid.textSecondary
                                     )
                                 }
-                                IconButton(
-                                    onClick = { viewModel.nextMonth() },
-                                    modifier = Modifier
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    Text(
+                                        text = "${CurrencyFormatter.getMonthName(selectedMonth)} $selectedYear",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = liquid.textPrimary,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    if (selectedYear != viewModel.currentYear || selectedMonth != viewModel.currentMonth) {
+                                        GoToCurrentMonthChip(onClick = { viewModel.selectMonth(viewModel.currentYear, viewModel.currentMonth) })
+                                    }
+                                }
+                                IconButton(onClick = { viewModel.nextMonth() }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                         contentDescription = "Próximo mês",
-                                        tint = liquid.textPrimary,
-                                        modifier = Modifier.size(18.dp)
+                                        tint = liquid.textSecondary
                                     )
                                 }
                             }
                         }
-
-                        FilterChip(
-                            selected = currentFilter == DebtScopeFilter.ALL_TIME,
-                            onClick = { currentFilter = DebtScopeFilter.ALL_TIME },
-                            label = { Text("Geral", maxLines = 1) },
-                            shape = RoundedCornerShape(50),
-                            colors = liquidFilterChipColors(),
-                            modifier = Modifier.testTag("filter_all_time")
-                        )
                     }
                 }
 

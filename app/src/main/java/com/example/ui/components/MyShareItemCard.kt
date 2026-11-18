@@ -61,7 +61,7 @@ fun MyShareItemCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .liquidGlass(shape = LiquidShapes.row, elevation = LocalLiquidElevation.current.low)
+            .acertoCard(LiquidShapes.row)
             .clickable { onEdit(item) }
             .testTag("my_share_card_${item.id}")
     ) {
@@ -92,14 +92,14 @@ fun MyShareItemCard(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
                         text = item.expenseTitle,
                         style = MaterialTheme.typography.titleSmall,
                         color = liquid.textPrimary
                     )
                     Text(
-                        text = "Sua cota mensal • Toque para editar",
+                        text = "Sua parte · ${item.installmentNumber} de ${item.totalInstallments}",
                         style = MaterialTheme.typography.bodySmall,
                         color = liquid.textMuted
                     )
@@ -114,36 +114,8 @@ fun MyShareItemCard(
                 Text(
                     text = displayShare,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = liquid.accent
+                    color = liquid.textPrimary
                 )
-
-                // Quick Edit button pill
-                Surface(
-                    shape = LiquidShapes.pill,
-                    color = liquid.pillSecondaryBg,
-                    border = BorderStroke(1.dp, liquid.cardBorder),
-                    modifier = Modifier
-                        .clickable { onEdit(item) }
-                        .testTag("edit_my_share_btn_${item.id}")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Editar Minha Parte",
-                            tint = liquid.textPrimary,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = "Editar",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = liquid.textPrimary
-                        )
-                    }
-                }
 
                 // 3-dots Menu for Edit / Delete
                 Box {

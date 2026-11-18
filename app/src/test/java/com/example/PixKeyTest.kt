@@ -20,22 +20,22 @@ class PixKeyTest {
     @Test
     fun cobrancaIncluiChavePixQuandoHaPendencia() {
         val msg = DebtMessageFormatter.format("Ana", listOf(item(paid = false)), pixKey = "ana@email.com")
-        assertTrue(msg.contains("Chave PIX: ana@email.com"))
+        assertTrue(msg.contains("E-mail: ana@email.com"))
         // A chave vem antes do fechamento
-        assertTrue(msg.indexOf("Chave PIX") < msg.indexOf("Quando puder"))
+        assertTrue(msg.indexOf("E-mail:") < msg.indexOf("Quando puder"))
     }
 
     @Test
     fun cobrancaSemChaveOuSemPendenciaNaoMostraPix() {
-        assertFalse(DebtMessageFormatter.format("Ana", listOf(item(false))).contains("PIX"))
-        assertFalse(DebtMessageFormatter.format("Ana", listOf(item(false)), pixKey = "  ").contains("PIX"))
-        assertFalse(DebtMessageFormatter.format("Ana", listOf(item(true)), pixKey = "ana@email.com").contains("PIX"))
+        assertFalse(DebtMessageFormatter.format("Ana", listOf(item(false))).contains("Pix"))
+        assertFalse(DebtMessageFormatter.format("Ana", listOf(item(false)), pixKey = "  ").contains("Pix"))
+        assertFalse(DebtMessageFormatter.format("Ana", listOf(item(true)), pixKey = "ana@email.com").contains("Pix"))
     }
 
     @Test
     fun detectaTipoDaChave() {
         assertEquals("E-mail", PixKeyStore.describe("ana@email.com"))
-        assertEquals("CPF ou celular", PixKeyStore.describe("123.456.789-09"))
+        assertEquals("CPF", PixKeyStore.describe("123.456.789-09"))
         assertEquals("CNPJ", PixKeyStore.describe("12.345.678/0001-95"))
         assertEquals("Celular", PixKeyStore.describe("+55 11 98765-4321"))
         assertEquals("Chave aleatória", PixKeyStore.describe("123e4567-e89b-12d3-a456-426614174000"))

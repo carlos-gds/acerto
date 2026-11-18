@@ -67,14 +67,12 @@ class DebtMessageFormatterTest {
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
 
-        assertTrue(message.contains("Olá, Maria!"))
-        assertTrue(message.contains("Supermercado"))
-        assertTrue(message.contains("parcela 1/1"))
-        assertTrue(message.contains("Pendente"))
-        assertTrue(message.contains("Total da dívida:"))
-        assertTrue(message.contains("Total pendente:"))
-        assertFalse(message.contains("Total já pago:")) // No paid items
-        assertTrue(message.contains("Quando puder, me avise sobre o pagamento. Obrigado!"))
+        assertTrue(message.contains("Oi, Maria! 👋"))
+        assertTrue(message.contains("• Supermercado"))
+        assertFalse(message.contains("1 de 1")) // compra à vista não mostra parcela
+        assertTrue(message.contains("*Falta pagar: ${CurrencyFormatter.format(120.0)}*"))
+        assertFalse(message.contains("Já pago")) // nada pago
+        assertTrue(message.contains("Quando puder, me avisa por aqui. Obrigado! 🙏"))
     }
 
     @Test
@@ -102,10 +100,11 @@ class DebtMessageFormatterTest {
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
 
-        assertTrue(message.contains("parcela 1/3"))
-        assertTrue(message.contains("parcela 2/3"))
-        assertTrue(message.contains("Janeiro/2026"))
-        assertTrue(message.contains("Fevereiro/2026"))
+        assertTrue(message.contains("1 de 3"))
+        assertTrue(message.contains("2 de 3"))
+        assertFalse(message.contains("1/3")) // sem barra: o WhatsApp não vira link de data
+        assertTrue(message.contains("jan/26"))
+        assertTrue(message.contains("fev/26"))
         assertTrue(message.contains(CurrencyFormatter.format(160.0)))
     }
 
@@ -131,12 +130,12 @@ class DebtMessageFormatterTest {
         )
 
         assertTrue(message.contains("Farmácia"))
-        assertTrue(message.contains("Pago"))
+        assertTrue(message.contains("${CurrencyFormatter.format(50.0)} ✅"))
         assertTrue(message.contains("Restaurante"))
-        assertTrue(message.contains("Pendente"))
-        assertTrue(message.contains("Total da dívida: ${CurrencyFormatter.format(150.0)}"))
-        assertTrue(message.contains("Total pendente: ${CurrencyFormatter.format(100.0)}"))
-        assertTrue(message.contains("Total já pago: ${CurrencyFormatter.format(50.0)}"))
+        // pendentes primeiro, pagos depois
+        assertTrue(message.indexOf("Restaurante") < message.indexOf("Farmácia"))
+        assertTrue(message.contains("*Falta pagar: ${CurrencyFormatter.format(100.0)}*"))
+        assertTrue(message.contains("✅ Já pago: ${CurrencyFormatter.format(50.0)}"))
     }
 
     @Test
@@ -149,9 +148,9 @@ class DebtMessageFormatterTest {
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
 
-        assertTrue(message.contains("Total da dívida: ${CurrencyFormatter.format(200.0)}"))
-        assertTrue(message.contains("Total pendente: ${CurrencyFormatter.format(0.0)} (Tudo quitado! 🎉)"))
-        assertTrue(message.contains("Total já pago: ${CurrencyFormatter.format(200.0)}"))
+        assertTrue(message.contains("🎉 Tudo pago! Total de ${CurrencyFormatter.format(200.0)}."))
+        assertFalse(message.contains("Falta pagar"))
+        assertTrue(message.endsWith("Obrigado! 🙏"))
     }
 
     @Test
@@ -186,7 +185,8 @@ class DebtMessageFormatterTest {
             selectedYear = 2026
         )
 
-        assertTrue(messageMonthly.contains("Janeiro de 2026"))
+        assertTrue(messageMonthly.contains("Seu resumo de janeiro 🧾"))
+        assertFalse(messageMonthly.contains("jan/26")) // no mês, a data não se repete
         assertTrue(messageMonthly.contains("Janeiro Conta"))
         assertFalse(messageMonthly.contains("Fevereiro Conta"))
         assertTrue(messageMonthly.contains(CurrencyFormatter.format(100.0)))
@@ -204,7 +204,7 @@ class DebtMessageFormatterTest {
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
 
-        assertTrue(messageAllTime.contains("resumo geral de todas as suas pendências acumuladas"))
+        assertTrue(messageAllTime.contains("Seu resumo geral 🧾"))
         assertTrue(messageAllTime.contains("Janeiro Item"))
         assertTrue(messageAllTime.contains("Fevereiro Item"))
         assertTrue(messageAllTime.contains(CurrencyFormatter.format(120.0)))
@@ -243,8 +243,8 @@ class DebtMessageFormatterTest {
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
 
-        assertTrue(message.contains("Maio/2026"))
-        assertTrue(message.contains("conta compartilhada"))
+        assertTrue(message.contains("mai/26"))
+        assertTrue(message.contains("conta dividida"))
         assertTrue(message.contains("R$"))
         assertTrue(message.contains("89,90"))
     }
@@ -264,7 +264,7 @@ class DebtMessageFormatterTest {
         )
 
         assertTrue(message.contains("Item Com Nota"))
-        assertTrue(message.contains("Obs: Dividido em partes iguais no almoço"))
+        assertTrue(message.contains("(obs: Dividido em partes iguais no almoço)"))
         assertTrue(message.contains("Item Sem Nota"))
     }
 
@@ -276,8 +276,8 @@ class DebtMessageFormatterTest {
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
 
-        assertTrue(messageAllTime.contains("Olá, Renata!"))
-        assertTrue(messageAllTime.contains("Não há pendências registradas no momento."))
+        assertTrue(messageAllTime.contains("Oi, Renata! 👋"))
+        assertTrue(messageAllTime.contains("Você não tem nada pendente no momento. 🎉"))
 
         val messageMonthly = DebtMessageFormatter.format(
             personName = "Renata",
@@ -287,7 +287,7 @@ class DebtMessageFormatterTest {
             selectedYear = 2026
         )
 
-        assertTrue(messageMonthly.contains("Não há pendências registradas para Março de 2026."))
+        assertTrue(messageMonthly.contains("Você não tem nada pendente em março de 2026. 🎉"))
     }
 
     @Test
@@ -299,14 +299,14 @@ class DebtMessageFormatterTest {
             items = listOf(item),
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
-        assertTrue(msgEmpty.startsWith("Olá!\n\n"))
+        assertTrue(msgEmpty.startsWith("Oi! 👋\n\n"))
 
         val msgUnknown = DebtMessageFormatter.format(
             personName = "Desconhecido",
             items = listOf(item),
             scope = DebtMessageFormatter.DebtScope.ALL_TIME
         )
-        assertTrue(msgUnknown.startsWith("Olá!\n\n"))
+        assertTrue(msgUnknown.startsWith("Oi! 👋\n\n"))
     }
 
     @Test
@@ -341,7 +341,7 @@ class DebtMessageFormatterTest {
             notesByExpenseId = notesMap
         )
 
-        assertTrue(message.contains("Olá, João & Maria 🛒!"))
+        assertTrue(message.contains("Oi, João & Maria 🛒! 👋"))
         assertTrue(message.contains("Compras no Supermercado & Padaria 🥖"))
         assertTrue(message.contains("Não esquecer o cupom fiscal! 🧾"))
         assertTrue(message.contains("65,50"))
@@ -370,5 +370,12 @@ class DebtMessageFormatterTest {
         assertEquals(Intent.ACTION_SEND, wrappedIntent?.action)
         assertEquals("text/plain", wrappedIntent?.type)
         assertEquals(sampleText, wrappedIntent?.getStringExtra(Intent.EXTRA_TEXT))
+    }
+
+    @Test
+    fun ultimaParcelaEhMarcada() {
+        val item = createItem(installmentNumber = 3, totalInstallments = 3, amount = 50.0)
+        val message = DebtMessageFormatter.format("Ana", listOf(item), DebtMessageFormatter.DebtScope.ALL_TIME)
+        assertTrue(message.contains("3 de 3 (última)"))
     }
 }

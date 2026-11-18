@@ -58,4 +58,30 @@ class MonthlyReminderTest {
     fun semPendenciaNaoNotifica() {
         assertNull(MonthlyReminder.message(listOf(item(1, 100, paid = true)), 2026, 12))
     }
+
+    @Test
+    fun comVencimentoChegaTresDiasAntes() {
+        val next = MonthlyReminder.nextTrigger(cal(2026, 11, 17, 15), dueDay = 25)
+        assertEquals(Calendar.NOVEMBER, next.get(Calendar.MONTH))
+        assertEquals(22, next.get(Calendar.DAY_OF_MONTH))
+        val passou = MonthlyReminder.nextTrigger(cal(2026, 11, 23, 10), dueDay = 25)
+        assertEquals(Calendar.DECEMBER, passou.get(Calendar.MONTH))
+        assertEquals(22, passou.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun vencimentoNoComecoOuNoFimDoMes() {
+        assertEquals(1, MonthlyReminder.reminderDay(2))
+        // vencimento dia 31: em fevereiro o lembrete vai para o último dia possível (28)
+        val fev = MonthlyReminder.nextTrigger(cal(2027, 2, 1, 8), dueDay = 31)
+        assertEquals(Calendar.FEBRUARY, fev.get(Calendar.MONTH))
+        assertEquals(28, fev.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun mensagemComVencimento() {
+        val msg = MonthlyReminder.message(listOf(item(1, 10000)), 2026, 12, dueDay = 10)!!
+        assertEquals("Sua fatura vence dia 10", msg.first)
+        assertTrue(msg.second.contains("Cobre antes"))
+    }
 }

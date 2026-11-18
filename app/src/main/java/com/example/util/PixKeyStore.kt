@@ -18,6 +18,7 @@ object PixKeyStore {
     private const val KEY = "pix_key"
     private const val KEY_NAME = "pix_name"
     private const val KEY_CITY = "pix_city"
+    private const val KEY_BANK = "pix_bank"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -28,20 +29,18 @@ object PixKeyStore {
         prefs(context).edit().putString(KEY, value.trim()).apply()
     }
 
-    /** Nome de quem recebe, como aparece no banco (vai no PIX copia e cola). */
+    /** Nome de quem recebe, como aparece no banco (vai na cobrança). */
     fun getName(context: Context): String = prefs(context).getString(KEY_NAME, "").orEmpty().trim()
 
-    /** Cidade de quem recebe (vai no PIX copia e cola). */
+    /** Cidade salva em versões anteriores (o copia e cola usa "BRASIL" quando não há). */
     fun getCity(context: Context): String = prefs(context).getString(KEY_CITY, "").orEmpty().trim()
 
-    fun setReceiver(context: Context, name: String, city: String) {
-        prefs(context).edit().putString(KEY_NAME, name.trim()).putString(KEY_CITY, city.trim()).apply()
+    /** Banco onde está a chave (só para mostrar na cobrança). */
+    fun getBank(context: Context): String = prefs(context).getString(KEY_BANK, "").orEmpty().trim()
+
+    fun setReceiver(context: Context, name: String, bank: String) {
+        prefs(context).edit().putString(KEY_NAME, name.trim()).putString(KEY_BANK, bank.trim()).apply()
     }
-
-    /** Dados do PIX para a mensagem de cobrança. */
-    data class Info(val key: String, val name: String, val city: String)
-
-    fun info(context: Context) = Info(get(context), getName(context), getCity(context))
 
     /** Estado observável da chave (atualiza a UI quando a chave muda em Ajustes). */
     @Composable
@@ -51,7 +50,7 @@ object PixKeyStore {
         DisposableEffect(context) {
             val p = prefs(context)
             val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key == KEY || key == KEY_NAME || key == KEY_CITY) state.value = get(context)
+                if (key == KEY || key == KEY_NAME || key == KEY_CITY || key == KEY_BANK) state.value = get(context)
             }
             p.registerOnSharedPreferenceChangeListener(listener)
             onDispose { p.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -59,23 +58,6 @@ object PixKeyStore {
         return state
     }
 
-    /** Tipo provável da chave, só para orientar o usuário (aceita qualquer formato). */
-    fun describe(key: String): String {
-        val k = key.trim()
-        if (k.isEmpty()) return ""
-        if ("@" in k) return "E-mail"
-        if (Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").matches(k)) {
-            return "Chave aleatória"
-        }
-        if (k.startsWith("+")) return "Celular"
-        val onlyNumberChars = k.all { it.isDigit() || it in ".-/() " }
-        val digits = k.count { it.isDigit() }
-        return when {
-            !onlyNumberChars -> "Chave PIX"
-            digits == 14 -> "CNPJ"
-            digits == 11 -> "CPF ou celular"
-            digits == 10 || digits == 12 || digits == 13 -> "Celular"
-            else -> "Chave PIX"
-        }
-    }
+    /** Tipo da chave, detectado pelo formato (CPF, CNPJ, Celular, E-mail, Chave aleatória). */
+    fun describe(key: String): String = PixPayload.detect(key)?.label ?: ""
 }

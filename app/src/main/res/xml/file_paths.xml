@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Imagens de cobrança geradas no cache, compartilhadas pelo FileProvider -->
+<paths>
+    <cache-path name="cobrancas" path="cobrancas/" />
+</paths>

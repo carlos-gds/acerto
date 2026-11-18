@@ -35,8 +35,9 @@ class PixPayloadTest {
     @Test
     fun semNomeOuCidadeNaoGeraCopiaECola() {
         assertNull(PixPayload.build("ana@email.com", "", "São Paulo"))
-        assertNull(PixPayload.build("ana@email.com", "Ana", "  "))
         assertNull(PixPayload.build("", "Ana", "Recife"))
+        // sem cidade, vai "BRASIL" (os bancos não conferem esse campo)
+        assertTrue(PixPayload.build("ana@email.com", "Ana")!!.contains("6006BRASIL"))
     }
 
     @Test
@@ -56,11 +57,46 @@ class PixPayloadTest {
             year = 2026, month = 11, amount = 10000, isPaid = false
         )
         val semDados = DebtMessageFormatter.format("Ana", listOf(item), pixKey = "ana@email.com")
-        assertFalse(semDados.contains("copia e cola"))
+        assertFalse(semDados.contains("opia e cola"))
         val comDados = DebtMessageFormatter.format(
-            "Ana", listOf(item), pixKey = "ana@email.com", pixName = "Carlos", pixCity = "Recife"
+            "Ana", listOf(item), pixKey = "ana@email.com", pixName = "Carlos", pixBank = "Nubank"
         )
-        assertTrue(comDados.contains("PIX copia e cola"))
-        assertTrue(comDados.contains("5406100.00"))
+        assertTrue(comDados.contains("Para: Carlos · Nubank"))
+        assertTrue(comDados.contains("E-mail: ana@email.com"))
+        // o copia e cola saiu da mensagem: nunca aparece, mesmo com nome
+        assertFalse(comDados.contains("opia e cola"))
+        assertFalse(comDados.contains("br.gov.bcb.pix"))
+    }
+
+    @Test
+    fun detectaTipoDaChaveAutomaticamente() {
+        assertEquals(PixPayload.KeyType.CPF, PixPayload.detect("529.982.247-25"))
+        assertEquals(PixPayload.KeyType.CPF, PixPayload.detect("52998224725"))
+        assertEquals(PixPayload.KeyType.PHONE, PixPayload.detect("(11) 98765-4321"))
+        assertEquals(PixPayload.KeyType.PHONE, PixPayload.detect("11987654321")) // não é CPF válido
+        assertEquals(PixPayload.KeyType.PHONE, PixPayload.detect("+55 11 98765-4321"))
+        assertEquals(PixPayload.KeyType.CNPJ, PixPayload.detect("12.345.678/0001-95"))
+        assertEquals(PixPayload.KeyType.EMAIL, PixPayload.detect("Ana@Email.com"))
+        assertEquals(PixPayload.KeyType.RANDOM, PixPayload.detect("123e4567-e12b-12d1-a456-426655440000"))
+        assertNull(PixPayload.detect("  "))
+    }
+
+    @Test
+    fun chaveParaCopiarFicaLimpa() {
+        assertEquals("52998224725", PixPayload.displayKey("529.982.247-25"))
+        assertEquals("11987654321", PixPayload.displayKey("+55 (11) 98765-4321"))
+        assertEquals("ana@email.com", PixPayload.displayKey(" Ana@Email.com "))
+    }
+
+    @Test
+    fun cobrancaMostraTipoDaChave() {
+        val item = InstallmentItem(
+            id = 1, expenseId = 1, personId = 2, personName = "Ana", expenseTitle = "Airfryer",
+            expenseType = ExpenseType.CARD_PURCHASE, installmentNumber = 1, totalInstallments = 3,
+            year = 2026, month = 11, amount = 10000, isPaid = false
+        )
+        val msg = DebtMessageFormatter.format("Ana", listOf(item), pixKey = "529.982.247-25", pixName = "Carlos")
+        assertTrue(msg.contains("CPF: 52998224725"))
+        assertTrue(msg.contains("Para: Carlos"))
     }
 }

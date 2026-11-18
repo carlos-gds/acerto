@@ -148,6 +148,8 @@ fun HomeScreen(
     val cardPurchases by viewModel.cardPurchasesProgress.collectAsStateWithLifecycle()
     val monthlyInstallments by viewModel.monthlyInstallments.collectAsStateWithLifecycle()
     val homeExpandedCardStates by viewModel.homeExpandedCardStates.collectAsStateWithLifecycle()
+    val allInstallments by viewModel.allInstallments.collectAsStateWithLifecycle()
+    val allExpenses by viewModel.allExpenses.collectAsStateWithLifecycle()
 
     val isAiBottomSheetVisible by viewModel.isAiBottomSheetVisible.collectAsStateWithLifecycle()
     val isAiLoading by viewModel.isAiLoading.collectAsStateWithLifecycle()
@@ -395,6 +397,9 @@ fun HomeScreen(
                             },
                             onEditItem = { itemToEdit = it },
                             onDeleteItem = { itemToDelete = it },
+                            payoff = remember(allInstallments, openGroup.personId) {
+                                com.example.util.Forecast.payoff(allInstallments, openGroup.personId)
+                            },
                             onPartialPayment = { item, amount ->
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 viewModel.registerPartialPayment(item, amount)
@@ -423,6 +428,15 @@ fun HomeScreen(
                             onOpenPerson = { openPersonId = it },
                             onEditItem = { itemToEdit = it },
                             onDeleteItem = { itemToDelete = it },
+                            allInstallments = allInstallments,
+                            recurring = remember(monthlyInstallments, allExpenses) {
+                                com.example.util.Forecast.recurring(
+                                    monthlyInstallments,
+                                    allExpenses.filter { it.isRecurring }.map { it.id }.toSet()
+                                )
+                            },
+                            onSelectMonth = { y, m -> viewModel.selectMonth(y, m) },
+                            onGoToCurrentMonth = { viewModel.selectMonth(viewModel.currentYear, viewModel.currentMonth) },
                             searchBar = {
                                 ExpenseSearchFilterBar(
                                     query = expenseSearchQuery,

@@ -70,15 +70,19 @@ import com.example.ui.components.glass.liquidDialogEnter
 import com.example.ui.components.glass.liquidFieldMotion
 import com.example.ui.components.glass.shakeOnChange
 
+/**
+ * Paleta fixa das pessoas, também usada nos gráficos. Sem vermelho (é a cor da
+ * marca) e sem âmbar (é a cor de "pendente"), para nada parecer alerta.
+ */
 val AVAILABLE_PERSON_COLORS = listOf(
-    "#10B981", // Emerald
-    "#3B82F6", // Blue
-    "#8B5CF6", // Purple
-    "#EC4899", // Pink
-    "#F59E0B", // Amber
-    "#06B6D4", // Cyan
-    "#EF4444", // Rose
-    "#6366F1"  // Indigo
+    "#3B82F6", // Azul
+    "#22C55E", // Verde
+    "#14B8A6", // Turquesa
+    "#8B5CF6", // Violeta
+    "#EC4899", // Rosa
+    "#F97316", // Laranja
+    "#6366F1", // Índigo
+    "#06B6D4"  // Ciano
 )
 
 @Composable

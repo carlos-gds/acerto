@@ -32,6 +32,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Today
+import com.example.ui.components.acertoCard
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -141,11 +145,26 @@ fun HomeOverview(
     onEditItem: (InstallmentItem) -> Unit,
     onDeleteItem: (InstallmentItem) -> Unit,
     searchBar: @Composable () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Todas as parcelas: previsão dos próximos meses e comparação com o mês anterior. */
+    allInstallments: List<InstallmentItem> = emptyList(),
+    /** Contas fixas (divididas e recorrentes) do mês, para a pílula de resumo. */
+    recurring: com.example.util.Forecast.Recurring? = null,
+    onSelectMonth: (Int, Int) -> Unit = { _, _ -> },
+    /** Volta para o mês de hoje (aparece quando outro mês está aberto). */
+    onGoToCurrentMonth: () -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
     val totals = totalsOf(groups)
+    val prevYear = if (selectedMonth == 1) selectedYear - 1 else selectedYear
+    val prevMonth = if (selectedMonth == 1) 12 else selectedMonth - 1
+    val prevTotal = remember(allInstallments, prevYear, prevMonth) {
+        com.example.util.Forecast.monthTotal(allInstallments, prevYear, prevMonth)
+    }
+    val forecast = remember(allInstallments, selectedYear, selectedMonth) {
+        com.example.util.Forecast.nextMonths(allInstallments, selectedYear, selectedMonth, 6)
+    }
 
     // statusBarsPadding: o conteúdo começa abaixo da barra de status (relógio, bateria)
     Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
@@ -196,14 +215,18 @@ fun HomeOverview(
                     isCurrentMonth = isCurrentMonth,
                     showingPendingMonth = showingPendingMonth,
                     onPrevious = onPreviousMonth,
-                    onNext = onNextMonth
+                    onNext = onNextMonth,
+                    onGoToCurrent = onGoToCurrentMonth
                 )
             }
 
             item(key = "hero") {
                 HeroCard(
                     totals = totals,
+                    groups = groups,
                     month = selectedMonth,
+                    prevMonth = prevMonth,
+                    prevTotal = prevTotal,
                     isPrivacyMode = isPrivacyMode,
                     filtered = hasSearchQuery
                 )
@@ -262,8 +285,7 @@ fun HomeOverview(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(ListShape)
-                            .background(liquid.cardSurface)
+                            .acertoCard(ListShape)
                     ) {
                         val sorted = groups.sortedWith(
                             compareBy<PersonMonthlyGroup> { it.pendingAmount <= 0.001 }.thenByDescending { it.pendingAmount }
@@ -286,6 +308,30 @@ fun HomeOverview(
                         color = liquid.textSecondary,
                         modifier = Modifier.padding(top = 20.dp, start = 4.dp)
                     )
+                }
+            }
+
+            if (!hasSearchQuery && forecast.any { it.amount > 0.0 }) {
+                item(key = "forecast_header") {
+                    val sum = forecast.sumOf { it.amount }
+                    val last = forecast.last()
+                    SectionHeader(
+                        title = "Próximos meses",
+                        trailing = "${CurrencyFormatter.format(sum, isPrivacyMode)} até ${CurrencyFormatter.getMonthShortName(last.month).lowercase()}"
+                    )
+                }
+                item(key = "forecast_chart") {
+                    ForecastChart(
+                        months = forecast,
+                        isPrivacyMode = isPrivacyMode,
+                        onSelect = { y, m -> onSelectMonth(y, m) }
+                    )
+                }
+            }
+
+            if (recurring != null && !hasSearchQuery) {
+                item(key = "recurring_pill") {
+                    RecurringPill(recurring = recurring, isPrivacyMode = isPrivacyMode)
                 }
             }
 
@@ -349,7 +395,8 @@ private fun MonthRow(
     isCurrentMonth: Boolean,
     showingPendingMonth: Boolean,
     onPrevious: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onGoToCurrent: () -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
@@ -376,12 +423,17 @@ private fun MonthRow(
                         flags.first -> "este mês"
                         else -> null
                     }
-                    if (hint != null) {
-                        Text(
-                            hint,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (flags.second) liquid.accentPending else liquid.textSecondary
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (hint != null) {
+                            Text(
+                                hint,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (flags.second) liquid.accentPending else liquid.textSecondary
+                            )
+                        }
+                        if (!flags.first) {
+                            GoToCurrentMonthChip(onClick = onGoToCurrent)
+                        }
                     }
                 }
             }
@@ -407,58 +459,219 @@ private fun ArrowButton(icon: androidx.compose.ui.graphics.vector.ImageVector, l
 }
 
 @Composable
-private fun HeroCard(totals: HomeTotals, month: Int, isPrivacyMode: Boolean, filtered: Boolean) {
+private fun HeroCard(
+    totals: HomeTotals,
+    groups: List<PersonMonthlyGroup>,
+    month: Int,
+    prevMonth: Int,
+    prevTotal: Double,
+    isPrivacyMode: Boolean,
+    filtered: Boolean
+) {
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(CardShape)
-            .background(liquid.cardSurface)
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp)
+            .acertoCard(CardShape)
+            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp)
             .testTag("monthly_summary_card"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        when {
-            totals.people == 0 && !filtered -> {
-                Text("Nada a receber em ${monthLower(month)}", style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary)
-                Text("Nenhuma parcela", style = MaterialTheme.typography.headlineMedium, color = liquid.textPrimary)
-                Text(
-                    "Compras feitas no seu cartão para outras pessoas aparecem aqui no mês de cada parcela.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = liquid.textSecondary
+        if (totals.people == 0 && !filtered) {
+            Text("Nada a receber em ${monthLower(month)}", style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary)
+            Text("Nenhuma parcela", style = MaterialTheme.typography.headlineMedium, color = liquid.textPrimary)
+            Text(
+                "Compras feitas no seu cartão para outras pessoas aparecem aqui no mês de cada parcela.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = liquid.textSecondary
+            )
+            return@Column
+        }
+
+        // Linha de cima: pergunta da tela + quem deve (avatares empilhados)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Falta receber em ${monthLower(month)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = liquid.textSecondary,
+                modifier = Modifier.weight(1f)
+            )
+            if (groups.isNotEmpty()) {
+                com.example.ui.components.StackedAvatars(
+                    people = groups.map { Triple(it.personName, it.colorHex, it.avatar) },
+                    size = 30.dp
                 )
             }
-            totals.people > 0 && totals.pending <= 0.001 -> {
-                Text("Falta receber em ${monthLower(month)}", style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SuccessCheck(background = liquid.accentPaid, tint = liquid.cardSurface, size = 32.dp)
-                    Text("Tudo recebido", style = MaterialTheme.typography.headlineMedium, color = liquid.textPrimary)
+        }
+
+        if (totals.pending <= 0.001) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SuccessCheck(background = liquid.accentPaid, tint = liquid.cardSurface, size = 32.dp)
+                Text("Tudo recebido", style = MaterialTheme.typography.headlineMedium, color = liquid.textPrimary)
+            }
+        } else {
+            NumberPopIn(
+                text = CurrencyFormatter.format(totals.pending, isPrivacyMode),
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1).sp),
+                color = liquid.textPrimary,
+                modifier = Modifier.testTag("home_pending_total")
+            )
+        }
+
+        // Comparação com o mês anterior (neutra: receber mais não é bom nem ruim)
+        if (prevTotal > 0.0 && !isPrivacyMode) {
+            val diff = totals.total - prevTotal
+            val text = when {
+                kotlin.math.abs(diff) < 0.01 -> "Igual a ${monthLower(prevMonth)}"
+                diff > 0 -> "▲ ${CurrencyFormatter.format(diff)} a mais que ${monthLower(prevMonth)}"
+                else -> "▼ ${CurrencyFormatter.format(-diff)} a menos que ${monthLower(prevMonth)}"
+            }
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = liquid.textSecondary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(liquid.cardSurfaceVariant)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .testTag("home_compare_badge")
+            )
+        }
+
+        val fraction = if (totals.total > 0) ((totals.total - totals.pending) / totals.total).toFloat() else 0f
+        ProgressBar(fraction = fraction, reduced = reduced)
+
+        // Números em pares: recebido e total do mês
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(
+                label = "Recebido",
+                value = CurrencyFormatter.format(totals.total - totals.pending, isPrivacyMode),
+                detail = "${totals.paidPeople} de ${peopleLabel(totals.people)}",
+                valueColor = liquid.accentPaid,
+                modifier = Modifier.weight(1f)
+            )
+            StatTile(
+                label = "Total do mês",
+                value = CurrencyFormatter.format(totals.total, isPrivacyMode),
+                detail = if (totals.people == 1) "1 pessoa" else "${totals.people} pessoas",
+                valueColor = liquid.textPrimary,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatTile(label: String, value: String, detail: String, valueColor: Color, modifier: Modifier = Modifier) {
+    val liquid = LocalLiquidGlassColors.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(liquid.cardSurfaceVariant)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = liquid.textSecondary)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = liquid.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Colunas dos próximos 6 meses; o mês aberto fica na cor da marca. Toque abre o mês. */
+@Composable
+private fun ForecastChart(
+    months: List<com.example.util.Forecast.MonthAmount>,
+    isPrivacyMode: Boolean,
+    onSelect: (Int, Int) -> Unit
+) {
+    val liquid = LocalLiquidGlassColors.current
+    val reduced = rememberReducedMotion()
+    val brand = brandColor()
+    val max = (months.maxOfOrNull { it.amount } ?: 0.0).coerceAtLeast(0.01)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .acertoCard(ListShape)
+            .padding(horizontal = 10.dp, vertical = 16.dp)
+            .testTag("forecast_chart"),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        months.forEachIndexed { i, m ->
+            val target = (m.amount / max).toFloat().coerceIn(0f, 1f)
+            val h by animateFloatAsState(
+                targetValue = target,
+                animationSpec = tween(if (reduced) 0 else AcertoMotion.SLOW, delayMillis = if (reduced) 0 else i * AcertoMotion.STAGGER, easing = AcertoMotion.SmoothOut),
+                label = "bar_$i"
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(role = Role.Button, onClickLabel = "Abrir ${CurrencyFormatter.getMonthName(m.month)}") { onSelect(m.year, m.month) }
+                    .padding(vertical = 4.dp)
+            ) {
+                Text(
+                    if (isPrivacyMode) "•••" else compactMoney(m.amount),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (i == 0) liquid.textPrimary else liquid.textSecondary,
+                    maxLines = 1
+                )
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier.height(96.dp).width(26.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(if (m.amount > 0) h.coerceAtLeast(0.04f) else 0.04f)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(if (i == 0) brand else liquid.textSecondary.copy(alpha = if (liquid.isDark) 0.35f else 0.28f))
+                    )
                 }
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    "${CurrencyFormatter.format(totals.total, isPrivacyMode)} de ${peopleLabel(totals.people)}. Todos pagaram.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = liquid.textSecondary
+                    CurrencyFormatter.getMonthShortName(m.month).lowercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (i == 0) liquid.textPrimary else liquid.textSecondary
                 )
-                ProgressBar(fraction = 1f, reduced = reduced)
             }
-            else -> {
-                Text("Falta receber em ${monthLower(month)}", style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary)
-                NumberPopIn(
-                    text = CurrencyFormatter.format(totals.pending, isPrivacyMode),
-                    style = MaterialTheme.typography.displaySmall.copy(fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1).sp),
-                    color = liquid.textPrimary,
-                    modifier = Modifier.testTag("home_pending_total")
-                )
-                Text(
-                    "de ${CurrencyFormatter.format(totals.total, isPrivacyMode)} · ${totals.paidPeople} de ${peopleLabel(totals.people)} " +
-                        if (totals.people == 1) "pagou" else "pagaram",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = liquid.textSecondary
-                )
-                val fraction = if (totals.total > 0) ((totals.total - totals.pending) / totals.total).toFloat() else 0f
-                ProgressBar(fraction = fraction, reduced = reduced)
-            }
+        }
+    }
+}
+
+/** R$ 1,2 mil / R$ 980: cabe embaixo de cada coluna. */
+private fun compactMoney(v: Double): String = when {
+    v <= 0.0 -> "—"
+    v >= 1000 -> "R$ " + String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", v / 1000).replace(",0", "") + " mil"
+    else -> "R$ " + kotlin.math.round(v).toInt()
+}
+
+/** Pílula de resumo das contas fixas divididas do mês. */
+@Composable
+private fun RecurringPill(recurring: com.example.util.Forecast.Recurring, isPrivacyMode: Boolean) {
+    val liquid = LocalLiquidGlassColors.current
+    val label = if (recurring.count == 1) "1 conta fixa dividida" else "${recurring.count} contas fixas divididas"
+    Row(
+        modifier = Modifier
+            .padding(top = 14.dp)
+            .fillMaxWidth()
+            .acertoCard(RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .testTag("recurring_pill"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Autorenew, contentDescription = null, tint = liquid.textSecondary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleSmall, color = liquid.textPrimary)
+            Text(
+                "Sua parte ${CurrencyFormatter.format(recurring.myShareMonthly, isPrivacyMode)} por mês · outros ${CurrencyFormatter.format(recurring.othersMonthly, isPrivacyMode)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = liquid.textSecondary
+            )
         }
     }
 }
@@ -619,7 +832,9 @@ fun PersonMonthDetail(
     onEditItem: (InstallmentItem) -> Unit,
     onDeleteItem: (InstallmentItem) -> Unit,
     onPartialPayment: (InstallmentItem, Double) -> Unit = { _, _ -> },
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Quanto a pessoa ainda deve no total e quando quita (todas as parcelas futuras). */
+    payoff: com.example.util.Forecast.Payoff? = null
 ) {
     val liquid = LocalLiquidGlassColors.current
     val context = LocalContext.current
@@ -644,9 +859,20 @@ fun PersonMonthDetail(
             selectedYear = selectedYear,
             pixKey = PixKeyStore.get(context),
             pixName = com.example.util.PixKeyStore.getName(context),
+            pixBank = com.example.util.PixKeyStore.getBank(context),
             pixCity = com.example.util.PixKeyStore.getCity(context)
         )
-        ShareIntentHelper.sharePlainText(context = context, text = text, chooserTitle = "Cobrar ${group.personName}")
+        // Cobrança como imagem + texto (o texto traz a chave PIX para copiar)
+        val image = com.example.util.ChargeImage.render(
+            personName = group.personName,
+            month = selectedMonth,
+            year = selectedYear,
+            items = group.items,
+            pixKey = PixKeyStore.get(context),
+            pixName = PixKeyStore.getName(context),
+            pixBank = PixKeyStore.getBank(context)
+        )
+        com.example.util.ChargeImage.share(context, image, text, "Cobrar ${group.personName}")
     }
 
     if (confirmPrivacyShare) {
@@ -712,14 +938,28 @@ fun PersonMonthDetail(
                         color = liquid.textSecondary
                     )
                 }
+                if (payoff != null) {
+                    val sameMonth = payoff.lastYear == selectedYear && payoff.lastMonth == selectedMonth
+                    Text(
+                        if (sameMonth) "Esta é a última parcela."
+                        else "Faltam ${CurrencyFormatter.format(payoff.remaining, isPrivacyMode)} no total · quita em " +
+                            "${CurrencyFormatter.getMonthName(payoff.lastMonth).lowercase()} de ${payoff.lastYear}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = liquid.textSecondary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(liquid.cardSurfaceVariant)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("person_payoff")
+                    )
+                }
             }
         }
         item(key = "installments") {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(ListShape)
-                    .background(liquid.cardSurface)
+                    .acertoCard(ListShape)
             ) {
                 group.items.forEachIndexed { index, item ->
                     InstallmentLine(
@@ -743,7 +983,7 @@ fun PersonMonthDetail(
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag("person_charge_button")
             )
             Text(
-                "A mensagem leva as parcelas de ${monthLower(selectedMonth)} e a sua chave PIX, se estiver salva em Ajustes.",
+                "Vai uma imagem com as parcelas de ${monthLower(selectedMonth)} e o total, e uma mensagem com a sua chave PIX, se estiver salva em Ajustes.",
                 style = MaterialTheme.typography.bodySmall,
                 color = liquid.textSecondary,
                 modifier = Modifier.padding(top = 10.dp, start = 4.dp, end = 4.dp)
@@ -916,4 +1156,27 @@ private fun PartialPaymentDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = liquid.textSecondary) } }
     )
+}
+
+/** Atalho "Ir para o mês atual", mostrado quando outro mês está aberto. */
+@Composable
+fun GoToCurrentMonthChip(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val liquid = LocalLiquidGlassColors.current
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .padding(top = 4.dp)
+            .heightIn(min = 32.dp)
+            .pressScale(interaction, pressedScale = 0.95f)
+            .clip(RoundedCornerShape(16.dp))
+            .background(liquid.cardSurfaceVariant)
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .testTag("go_to_current_month")
+    ) {
+        Icon(Icons.Default.Today, contentDescription = null, tint = liquid.textPrimary, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("Ir para o mês atual", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = liquid.textPrimary)
+    }
 }

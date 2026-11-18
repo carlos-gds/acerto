@@ -29,6 +29,9 @@ import java.util.Calendar
 object MonthlyReminder {
     private const val PREFS = "acerto_prefs"
     private const val KEY = "monthly_reminder"
+    private const val KEY_DUE = "card_due_day"
+    /** Quantos dias antes do vencimento da fatura o lembrete chega. */
+    const val DAYS_BEFORE_DUE = 3
     const val CHANNEL_ID = "lembretes"
     const val ACTION = "com.example.acerto.MONTHLY_REMINDER"
     private const val NOTIFICATION_ID = 1001
@@ -38,21 +41,41 @@ object MonthlyReminder {
 
     fun isEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY, false)
 
+    /** Dia de vencimento da fatura do cartão (1–31), ou 0 se não informado. */
+    fun getDueDay(context: Context): Int = prefs(context).getInt(KEY_DUE, 0)
+
+    fun setDueDay(context: Context, day: Int) {
+        prefs(context).edit().putInt(KEY_DUE, day.coerceIn(0, 31)).apply()
+        if (isEnabled(context)) schedule(context)
+    }
+
+    /** Dia do mês em que o lembrete chega: 3 dias antes do vencimento, ou dia 1. */
+    fun reminderDay(dueDay: Int): Int = if (dueDay > 0) (dueDay - DAYS_BEFORE_DUE).coerceAtLeast(1) else 1
+
     fun setEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY, enabled).apply()
         if (enabled) schedule(context) else cancel(context)
     }
 
-    /** Próximo dia 1 às 9h (se hoje é dia 1 antes das 9h, é hoje). */
-    fun nextTrigger(now: Calendar = Calendar.getInstance()): Calendar {
-        val c = now.clone() as Calendar
-        c.set(Calendar.DAY_OF_MONTH, 1)
-        c.set(Calendar.HOUR_OF_DAY, 9)
-        c.set(Calendar.MINUTE, 0)
-        c.set(Calendar.SECOND, 0)
-        c.set(Calendar.MILLISECOND, 0)
-        if (!c.after(now)) c.add(Calendar.MONTH, 1)
-        return c
+    /**
+     * Próximo lembrete às 9h: no dia 1, ou 3 dias antes do vencimento da fatura
+     * quando ele foi informado. Em meses curtos, o dia é ajustado ao último dia.
+     */
+    fun nextTrigger(now: Calendar = Calendar.getInstance(), dueDay: Int = 0): Calendar {
+        fun at(monthOffset: Int): Calendar {
+            val c = now.clone() as Calendar
+            c.set(Calendar.DAY_OF_MONTH, 1)
+            c.add(Calendar.MONTH, monthOffset)
+            val day = reminderDay(dueDay).coerceAtMost(c.getActualMaximum(Calendar.DAY_OF_MONTH))
+            c.set(Calendar.DAY_OF_MONTH, day)
+            c.set(Calendar.HOUR_OF_DAY, 9)
+            c.set(Calendar.MINUTE, 0)
+            c.set(Calendar.SECOND, 0)
+            c.set(Calendar.MILLISECOND, 0)
+            return c
+        }
+        val thisMonth = at(0)
+        return if (thisMonth.after(now)) thisMonth else at(1)
     }
 
     private fun alarmIntent(context: Context): PendingIntent =
@@ -64,7 +87,7 @@ object MonthlyReminder {
 
     fun schedule(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        am.set(AlarmManager.RTC_WAKEUP, nextTrigger().timeInMillis, alarmIntent(context))
+        am.set(AlarmManager.RTC_WAKEUP, nextTrigger(dueDay = getDueDay(context)).timeInMillis, alarmIntent(context))
     }
 
     fun cancel(context: Context) {
@@ -72,15 +95,20 @@ object MonthlyReminder {
     }
 
     /** Texto do lembrete a partir das parcelas do mês (só de outras pessoas, não pagas). */
-    fun message(items: List<InstallmentItem>, year: Int, month: Int): Pair<String, String>? {
+    fun message(items: List<InstallmentItem>, year: Int, month: Int, dueDay: Int = 0): Pair<String, String>? {
         val pending = items.filter { it.year == year && it.month == month && !it.isMyShare && !it.isPaid }
         if (pending.isEmpty()) return null
         val people = pending.map { it.personId }.distinct().size
         val total = Money.toReal(pending.sumOf { it.amount })
         val monthName = CurrencyFormatter.getMonthName(month).lowercase()
-        val title = if (people == 1) "1 pessoa te deve em $monthName" else "$people pessoas te devem em $monthName"
-        val body = "Falta receber ${CurrencyFormatter.format(total)}. Toque para ver e cobrar."
-        return title to body
+        val who = if (people == 1) "1 pessoa" else "$people pessoas"
+        return if (dueDay > 0) {
+            "Sua fatura vence dia $dueDay" to
+                "Ainda faltam ${CurrencyFormatter.format(total)} de $who. Cobre antes do vencimento."
+        } else {
+            val title = if (people == 1) "1 pessoa te deve em $monthName" else "$people pessoas te devem em $monthName"
+            title to "Falta receber ${CurrencyFormatter.format(total)}. Toque para ver e cobrar."
+        }
     }
 
     fun canNotify(context: Context): Boolean =
@@ -104,7 +132,7 @@ object MonthlyReminder {
         val year = cal.get(Calendar.YEAR)
         val month = cal.get(Calendar.MONTH) + 1
         val items = AppDatabase.getDatabase(context).installmentDao().getAllInstallmentsList()
-        val msg = message(items, year, month)
+        val msg = message(items, year, month, getDueDay(context))
             ?: if (force) "Nada a receber em ${CurrencyFormatter.getMonthName(month).lowercase()}" to "Ninguém te deve neste mês. Este é só um exemplo do lembrete." else return
         notify(context, msg.first, msg.second)
     }

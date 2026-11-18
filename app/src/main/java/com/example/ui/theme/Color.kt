@@ -131,6 +131,8 @@ data class LiquidGlassColors(
 // para o vermelho nunca parecer dívida.
 // ==========================================
 val AcertoObsidian = Color(0xFF111217)
+/** Fundo do tema escuro: quase preto, bom em telas AMOLED. */
+val AcertoNight = Color(0xFF0C0D10)
 val AcertoIce = Color(0xFFEEF1F4)
 val AcertoIceFill = Color(0xFFE3E7EC)
 /** Vermelho de marca no claro: escurecido para texto branco passar AA (5,2:1). */
@@ -139,8 +141,8 @@ val AcertoRedLight = Color(0xFFC8152B)
 val AcertoRedDark = Color(0xFFE0243A)
 /** Vermelho para texto/ícone sobre o fundo escuro (4,8:1). */
 val AcertoRedOnDark = Color(0xFFF0354B)
-val AcertoDarkSurface = Color(0xFF1B1C22)
-val AcertoDarkFill = Color(0xFF26272E)
+val AcertoDarkSurface = Color(0xFF15161B)
+val AcertoDarkFill = Color(0xFF212228)
 
 private fun solid(color: Color) = Brush.verticalGradient(listOf(color, color))
 private val NoBrush = Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
@@ -184,13 +186,13 @@ val LiquidLightTokens = LiquidGlassColors(
 
 val LiquidDarkTokens = LiquidGlassColors(
     isDark = true,
-    background = AcertoObsidian,
-    backgroundGradient = solid(AcertoObsidian),
+    background = AcertoNight,
+    backgroundGradient = solid(AcertoNight),
     headerSurface = AcertoDarkSurface,
     cardSurface = AcertoDarkSurface,
     cardSurfaceVariant = AcertoDarkFill,
-    cardBorder = Color(0x1AEEF1F4),
-    cardBorderSubtle = Color(0x12EEF1F4),
+    cardBorder = Color(0x1FEEF1F4),
+    cardBorderSubtle = Color(0x17EEF1F4),
     textPrimary = AcertoIce,
     textSecondary = Color(0xFF9BA1AB),
     textMuted = Color(0xFF8B919B),

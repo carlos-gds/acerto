@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CreditCard
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Lock
@@ -266,10 +267,10 @@ private fun PixKeySetting() {
     var draft by remember(savedKey) { mutableStateOf(savedKey) }
     var savedTick by remember { mutableStateOf(0) }
     val savedName = remember(savedKey, savedTick) { PixKeyStore.getName(context) }
-    val savedCity = remember(savedKey, savedTick) { PixKeyStore.getCity(context) }
+    val savedBank = remember(savedKey, savedTick) { PixKeyStore.getBank(context) }
     var nameDraft by remember(savedName) { mutableStateOf(savedName) }
-    var cityDraft by remember(savedCity) { mutableStateOf(savedCity) }
-    val changed = draft.trim() != savedKey || nameDraft.trim() != savedName || cityDraft.trim() != savedCity
+    var bankDraft by remember(savedBank) { mutableStateOf(savedBank) }
+    val changed = draft.trim() != savedKey || nameDraft.trim() != savedName || bankDraft.trim() != savedBank
     val keyType = PixKeyStore.describe(draft)
 
     Column(
@@ -328,17 +329,14 @@ private fun PixKeySetting() {
             colors = liquidTextFieldColors()
         )
         OutlinedTextField(
-            value = cityDraft,
-            onValueChange = { cityDraft = it.take(30) },
-            modifier = Modifier.fillMaxWidth().testTag("settings_pix_city_input"),
+            value = bankDraft,
+            onValueChange = { bankDraft = it.take(30) },
+            modifier = Modifier.fillMaxWidth().testTag("settings_pix_bank_input"),
             singleLine = true,
-            label = { Text("Sua cidade") },
+            label = { Text("Banco (opcional)") },
+            placeholder = { Text("Ex.: Nubank, Itaú, Caixa") },
             supportingText = {
-                Text(
-                    if (com.example.util.PixPayload.build(draft, nameDraft, cityDraft) != null)
-                        "A cobrança vai com o PIX copia e cola, já com o valor."
-                    else "Com nome e cidade, a cobrança leva também o PIX copia e cola."
-                )
+                Text("Seu nome e o banco aparecem na cobrança, junto com a chave e o tipo dela.")
             },
             shape = LiquidShapes.field,
             colors = liquidTextFieldColors()
@@ -361,7 +359,7 @@ private fun PixKeySetting() {
             }
             Button(
                 onClick = {
-                    PixKeyStore.setReceiver(context, nameDraft, cityDraft)
+                    PixKeyStore.setReceiver(context, nameDraft, bankDraft)
                     PixKeyStore.set(context, draft)
                     savedTick++
                 },
@@ -445,16 +443,41 @@ private fun ReminderRow() {
             com.example.util.MonthlyReminder.setEnabled(context, on)
         }
     }
+    var dueDay by remember(context) { mutableStateOf(com.example.util.MonthlyReminder.getDueDay(context)) }
+    var editingDue by remember { mutableStateOf(false) }
+    if (editingDue) {
+        DueDayDialog(
+            current = dueDay,
+            onDismiss = { editingDue = false },
+            onSave = { day ->
+                dueDay = day
+                com.example.util.MonthlyReminder.setDueDay(context, day)
+                editingDue = false
+            }
+        )
+    }
     Column {
         SettingsRow(
             icon = Icons.Default.Notifications,
             title = "Lembrete mensal",
-            subtitle = if (enabled) "Dia 1 às 9h: quanto falta receber" else "Desligado",
+            subtitle = when {
+                !enabled -> "Desligado"
+                dueDay > 0 -> "Dia ${com.example.util.MonthlyReminder.reminderDay(dueDay)} às 9h, 3 dias antes da fatura"
+                else -> "Dia 1 às 9h: quanto falta receber"
+            },
             testTag = "settings_monthly_reminder",
             onClick = { turn(!enabled) },
             trailing = {
                 Switch(checked = enabled, onCheckedChange = { turn(it) }, colors = liquidSwitchColors())
             }
+        )
+        GlassDivider(modifier = Modifier.padding(horizontal = 12.dp))
+        SettingsRow(
+            icon = Icons.Default.CreditCard,
+            title = "Vencimento da fatura",
+            subtitle = if (dueDay > 0) "Dia $dueDay de cada mês" else "Não informado",
+            testTag = "settings_due_day",
+            onClick = { editingDue = true }
         )
         if (enabled) {
             TextButton(
@@ -474,4 +497,49 @@ private fun ReminderRow() {
             }
         }
     }
+}
+
+/** Escolha do dia de vencimento da fatura (1 a 31), ou remover. */
+@Composable
+private fun DueDayDialog(current: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+    val liquid = LocalLiquidGlassColors.current
+    var text by remember { mutableStateOf(if (current > 0) current.toString() else "") }
+    val day = text.toIntOrNull()
+    val valid = day != null && day in 1..31
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = liquid.sheetSurface,
+        title = { Text("Vencimento da fatura", color = liquid.textPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Com o dia do vencimento, o lembrete chega 3 dias antes, para dar tempo de cobrar.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = liquid.textSecondary
+                )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { v -> text = v.filter { it.isDigit() }.take(2) },
+                    singleLine = true,
+                    label = { Text("Dia (1 a 31)") },
+                    isError = text.isNotEmpty() && !valid,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    shape = LiquidShapes.field,
+                    colors = liquidTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth().testTag("due_day_input")
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { day?.let(onSave) }, enabled = valid) { Text("Salvar", color = liquid.textPrimary) }
+        },
+        dismissButton = {
+            Row {
+                if (current > 0) TextButton(onClick = { onSave(0) }) { Text("Remover", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = onDismiss) { Text("Cancelar", color = liquid.textSecondary) }
+            }
+        }
+    )
 }

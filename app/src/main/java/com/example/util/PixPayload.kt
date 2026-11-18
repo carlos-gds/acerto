@@ -10,11 +10,60 @@ import java.util.Locale
  */
 object PixPayload {
 
-    /** Retorna o código copia e cola, ou null se faltar chave, nome ou cidade. */
-    fun build(key: String, name: String, city: String, amount: Double? = null, txid: String = "***"): String? {
+    /** Tipos de chave PIX. */
+    enum class KeyType(val label: String) {
+        CPF("CPF"), CNPJ("CNPJ"), PHONE("Celular"), EMAIL("E-mail"), RANDOM("Chave aleatória"), OTHER("Chave Pix")
+    }
+
+    private val UUID_RE = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+    /**
+     * Descobre o tipo da chave pelo formato. 11 dígitos podem ser CPF ou celular:
+     * vale CPF quando os dígitos verificadores batem; celular quando o número tem
+     * cara de celular (DDD + 9) e não é um CPF válido, ou foi digitado como telefone.
+     */
+    fun detect(raw: String): KeyType? {
+        val k = raw.trim()
+        if (k.isEmpty()) return null
+        if ("@" in k) return KeyType.EMAIL
+        if (UUID_RE.matches(k)) return KeyType.RANDOM
+        if (k.startsWith("+")) return KeyType.PHONE
+        if (!k.all { it.isDigit() || it in ".-/() " }) return KeyType.OTHER
+        val digits = k.filter { it.isDigit() }
+        return when (digits.length) {
+            14 -> KeyType.CNPJ
+            11 -> when {
+                looksLikePhone(k) -> KeyType.PHONE
+                isValidCpf(digits) -> KeyType.CPF
+                digits[2] == '9' -> KeyType.PHONE
+                else -> KeyType.OTHER
+            }
+            10 -> KeyType.PHONE
+            12, 13 -> if (digits.startsWith("55")) KeyType.PHONE else KeyType.OTHER
+            else -> KeyType.OTHER
+        }
+    }
+
+    /** Chave pronta para a pessoa copiar e colar no banco (sem pontos; celular com DDD). */
+    fun displayKey(raw: String): String {
+        val k = raw.trim()
+        val digits = k.filter { it.isDigit() }
+        return when (detect(k)) {
+            KeyType.CPF, KeyType.CNPJ -> digits
+            KeyType.PHONE -> if ((digits.length == 12 || digits.length == 13) && digits.startsWith("55")) digits.drop(2) else digits
+            KeyType.EMAIL, KeyType.RANDOM -> k.lowercase(Locale.ROOT)
+            else -> k
+        }
+    }
+
+    /**
+     * Retorna o código copia e cola, ou null se faltar chave ou nome. A cidade é
+     * obrigatória no padrão, mas os bancos não a conferem: sem cidade, vai "BRASIL".
+     */
+    fun build(key: String, name: String, city: String = "", amount: Double? = null, txid: String = "***"): String? {
         val k = normalizeKey(key) ?: return null
         val n = sanitize(name, 25).ifBlank { return null }
-        val c = sanitize(city, 15).ifBlank { return null }
+        val c = sanitize(city, 15).ifBlank { "BRASIL" }
 
         val account = field("00", "br.gov.bcb.pix") + field("01", k)
         val sb = StringBuilder()
@@ -40,22 +89,19 @@ object PixPayload {
     fun normalizeKey(raw: String): String? {
         val k = raw.trim()
         if (k.isEmpty()) return null
-        if ("@" in k) return k.lowercase(Locale.ROOT)
-        if (Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").matches(k)) {
-            return k.lowercase(Locale.ROOT)
-        }
         val digits = k.filter { it.isDigit() }
-        if (k.startsWith("+")) return "+$digits"
-        return when (digits.length) {
-            14 -> digits // CNPJ
-            11 -> if (isValidCpf(digits) && !looksLikeMobile(k)) digits else "+55$digits"
-            10 -> "+55$digits" // fixo com DDD
-            12, 13 -> if (digits.startsWith("55")) "+$digits" else "+55$digits"
+        return when (detect(k)) {
+            KeyType.EMAIL, KeyType.RANDOM -> k.lowercase(Locale.ROOT)
+            KeyType.CPF, KeyType.CNPJ -> digits
+            KeyType.PHONE -> if (k.startsWith("+")) "+$digits"
+                else if ((digits.length == 12 || digits.length == 13) && digits.startsWith("55")) "+$digits"
+                else "+55$digits"
             else -> k
         }
     }
 
-    private fun looksLikeMobile(original: String) = original.contains('(') || original.contains(' ') && original.contains('-')
+    /** Digitado como telefone: "(11) 98765-4321" ou "11 98765-4321". */
+    private fun looksLikePhone(original: String) = original.contains('(') || (original.contains(' ') && original.contains('-'))
 
     fun isValidCpf(cpf: String): Boolean {
         if (cpf.length != 11 || cpf.all { it == cpf[0] }) return false
