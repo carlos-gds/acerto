@@ -122,9 +122,11 @@ fun StackedAvatars(
     people: List<Triple<String, String, String>>, // nome, cor, avatar
     modifier: Modifier = Modifier,
     size: Dp = 30.dp,
-    max: Int = 4
+    max: Int = 4,
+    ringColor: androidx.compose.ui.graphics.Color? = null
 ) {
     val liquid = LocalLiquidGlassColors.current
+    val ring = ringColor ?: liquid.cardSurface
     val shown = people.take(max)
     val extra = people.size - shown.size
     val step = size * 0.68f
@@ -136,7 +138,7 @@ fun StackedAvatars(
                     .offset(x = step * i)
                     .size(size)
                     .clip(CircleShape)
-                    .background(liquid.cardSurface)
+                    .background(ring)
                     .padding(2.dp)
             ) {
                 PersonAvatarBadge(name = name, colorHex = color, avatar = avatar, size = size - 4.dp)
@@ -148,7 +150,7 @@ fun StackedAvatars(
                     .offset(x = step * shown.size)
                     .size(size)
                     .clip(CircleShape)
-                    .background(liquid.cardSurface)
+                    .background(ring)
                     .padding(2.dp)
                     .clip(CircleShape)
                     .background(liquid.cardSurfaceVariant),

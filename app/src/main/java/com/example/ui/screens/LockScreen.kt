@@ -34,7 +34,7 @@ import com.example.ui.theme.LocalLiquidGlassColors
 @Composable
 fun LockScreen(onUnlock: () -> Unit) {
     val liquid = LocalLiquidGlassColors.current
-    val brand = if (liquid.isDark) Color(0xFFF0354B) else liquid.pillPrimaryBg
+    val brand = liquid.textPrimary
     Box(
         modifier = Modifier
             .fillMaxSize()

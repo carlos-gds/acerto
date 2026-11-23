@@ -1,0 +1,14 @@
+name: 💡 Ideia
+description: Sugira algo novo para o app
+labels: ["ideia"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qual é a ideia?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Que problema ela resolve?

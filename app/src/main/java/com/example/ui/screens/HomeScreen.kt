@@ -104,14 +104,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ExpenseType
 import com.example.data.model.InstallmentItem
-import com.example.ui.components.AddCardExpenseDialog
-import com.example.ui.components.AddSharedBillDialog
 import com.example.ui.components.AiExpenseConfirmationDialog
 import com.example.ui.components.BackupSettingsDialog
 import com.example.ui.components.CardPurchasesProgressSection
@@ -123,7 +125,6 @@ import com.example.ui.components.ExpenseSearchFilterBar
 import com.example.ui.components.ManagePeopleDialog
 import com.example.ui.components.MyShareItemCard
 import com.example.ui.components.QuickAiEntryBottomSheet
-import com.example.ui.components.SpeedDialFab
 import com.example.ui.components.glass.LiquidBackground
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.FinanceViewModel
@@ -133,7 +134,9 @@ import com.example.util.CurrencyFormatter
 @Composable
 fun HomeScreen(
     viewModel: FinanceViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    launchAction: String? = null,
+    onLaunchActionHandled: () -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
 
@@ -150,6 +153,7 @@ fun HomeScreen(
     val homeExpandedCardStates by viewModel.homeExpandedCardStates.collectAsStateWithLifecycle()
     val allInstallments by viewModel.allInstallments.collectAsStateWithLifecycle()
     val allExpenses by viewModel.allExpenses.collectAsStateWithLifecycle()
+    val monthlyHistory by viewModel.monthlyHistory.collectAsStateWithLifecycle()
 
     val isAiBottomSheetVisible by viewModel.isAiBottomSheetVisible.collectAsStateWithLifecycle()
     val isAiLoading by viewModel.isAiLoading.collectAsStateWithLifecycle()
@@ -169,6 +173,12 @@ fun HomeScreen(
         }
     }
 
+    val csvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) viewModel.exportCsvToUri(context.contentResolver, uri)
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -180,6 +190,8 @@ fun HomeScreen(
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
     var showAddCardExpenseDialog by remember { mutableStateOf(false) }
     var showAddSharedBillDialog by remember { mutableStateOf(false) }
+    /** Pessoa já escolhida ao abrir a Nova compra (ex.: botão + no cartão dela). */
+    var purchasePersonId by remember { mutableStateOf<Long?>(null) }
     var showManagePeopleDialog by remember { mutableStateOf(false) }
     var isSearchOpen by remember { mutableStateOf(false) }
     var expenseSearchQuery by remember { mutableStateOf("") }
@@ -188,6 +200,25 @@ fun HomeScreen(
     var itemToDelete by remember { mutableStateOf<InstallmentItem?>(null) }
     // Pessoa aberta na Início (tela lado a lado); null = resumo do mês
     var openPersonId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // Fluxo "Receber" (tela cheia por cima de tudo)
+    var receiveOpen by rememberSaveable { mutableStateOf(false) }
+    var receivePersonId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    // Atalhos do ícone e do widget
+    LaunchedEffect(launchAction) {
+        when (launchAction) {
+            com.example.util.AppActions.RECEIVE -> { selectedTab = AppTab.HOME; receivePersonId = null; receiveOpen = true }
+            com.example.util.AppActions.NEW_PURCHASE -> showAddCardExpenseDialog = true
+            com.example.util.AppActions.AI -> viewModel.openAiBottomSheet()
+            else -> return@LaunchedEffect
+        }
+        onLaunchActionHandled()
+    }
+
+    // Widget: mantém o "falta receber" atualizado
+    LaunchedEffect(allInstallments, isPrivacyMode) {
+        com.example.util.AcertoWidget.save(context, com.example.util.AcertoWidget.snapshotOf(allInstallments), isPrivacyMode)
+    }
     val pagePx = with(LocalDensity.current) { 12.dp.roundToPx() }
 
     val listStateHome = rememberLazyListState()
@@ -295,7 +326,7 @@ fun HomeScreen(
     // Barra inferior: entra ao abrir o app, some ao rolar para baixo e volta ao rolar para cima
     val bottomBarState = remember { MutableTransitionState(false) }
     LaunchedEffect(Unit) { bottomBarState.targetState = true }
-    LaunchedEffect(selectedTab) { bottomBarState.targetState = true }
+    LaunchedEffect(selectedTab) { bottomBarState.targetState = selectedTab != AppTab.SETTINGS }
     LaunchedEffect(activeListState) {
         var lastIndex = activeListState.firstVisibleItemIndex
         var lastOffset = activeListState.firstVisibleItemScrollOffset
@@ -304,10 +335,25 @@ fun HomeScreen(
                 val down = index > lastIndex || (index == lastIndex && offset > lastOffset + 24)
                 val up = index < lastIndex || (index == lastIndex && offset < lastOffset - 24)
                 if (down) bottomBarState.targetState = false
-                if (up || (index == 0 && offset == 0)) bottomBarState.targetState = true
+                if ((up || (index == 0 && offset == 0)) && selectedTab != AppTab.SETTINGS) bottomBarState.targetState = true
                 lastIndex = index
                 lastOffset = offset
             }
+    }
+
+    // Qualquer rolagem em qualquer aba (listas ou telas roláveis) esconde/mostra a barra
+    val barScrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): Offset {
+                if (selectedTab == AppTab.SETTINGS) return Offset.Zero
+                if (available.y < -4f) bottomBarState.targetState = false
+                else if (available.y > 4f) bottomBarState.targetState = true
+                return Offset.Zero
+            }
+        }
     }
 
     // Fechar a busca limpa o texto e o filtro, para nada ficar filtrado sem estar visível.
@@ -321,9 +367,35 @@ fun HomeScreen(
     // (A aba Cobranças trata o voltar no próprio BackHandler, via onBack.)
     BackHandler(enabled = selectedTab == AppTab.HOME && openPersonId != null) { openPersonId = null }
     BackHandler(enabled = selectedTab == AppTab.HOME && isSearchOpen && openPersonId == null) { closeSearch() }
-    BackHandler(enabled = selectedTab == AppTab.CARD || selectedTab == AppTab.SETTINGS) {
+    BackHandler(enabled = selectedTab == AppTab.CARD || selectedTab == AppTab.SETTINGS || selectedTab == AppTab.DEBTS) {
         selectedTab = AppTab.HOME
     }
+
+    // Abas em páginas: arrastar para o lado troca de aba (Pessoas, Início, Cartão)
+    val pagerTabs = remember { listOf(AppTab.DEBTS, AppTab.HOME, AppTab.CARD) }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = pagerTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 1
+    ) { pagerTabs.size }
+    // toque na barra (ou voltar) → página desliza até a aba
+    LaunchedEffect(selectedTab) {
+        val target = pagerTabs.indexOf(selectedTab)
+        if (target >= 0 && pagerState.currentPage != target) {
+            if (reducedMotion) pagerState.scrollToPage(target)
+            else pagerState.animateScrollToPage(target, animationSpec = spring(dampingRatio = 0.9f, stiffness = 380f))
+        }
+    }
+    // arrastou e soltou numa página → ela vira a aba atual
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            val tab = pagerTabs[page]
+            if (selectedTab != AppTab.SETTINGS && selectedTab != tab) {
+                if (tab != AppTab.HOME) openPersonId = null
+                selectedTab = tab
+            }
+        }
+    }
+    // sem arrastar enquanto algo está aberto por cima
+    val swipeEnabled = !receiveOpen && !showAddCardExpenseDialog && !showAddSharedBillDialog && selectedTab != AppTab.SETTINGS
 
     // Fundo Obsidian Liquid Glass cobrindo a tela toda
     // Liquid Glass adaptativo: blur real no Android 12+ (fonte = conteúdo das abas);
@@ -334,29 +406,21 @@ fun HomeScreen(
     LiquidBackground(modifier = modifier) {
     CompositionLocalProvider(LocalLiquidBackdrop provides backdropState) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
+            modifier = Modifier.fillMaxSize()
         ) {
-            AnimatedContent(
-                targetState = selectedTab,
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .liquidBackdropSource(backdropState),
-                transitionSpec = {
-                    if (reducedMotion) {
-                        fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-                    } else {
-                        val forward = targetState.ordinal > initialState.ordinal
-                        val shift = if (forward) 1 else -1
-                        (fadeIn(tween(240, delayMillis = 40)) +
-                            slideInHorizontally(spring(dampingRatio = 0.9f, stiffness = 380f)) { it / 10 * shift })
-                            .togetherWith(fadeOut(tween(140)) + slideOutHorizontally(tween(180)) { -it / 14 * shift })
-                    }
-                },
-                label = "tab_content"
-            ) { tab ->
-            when (tab) {
+                    .nestedScroll(barScrollConnection)
+                    .liquidBackdropSource(backdropState)
+            ) {
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                userScrollEnabled = swipeEnabled,
+                key = { pagerTabs[it] },
+                modifier = Modifier.fillMaxSize().testTag("tabs_pager")
+            ) { page ->
+            when (pagerTabs[page]) {
                 AppTab.HOME -> AnimatedContent(
                     targetState = openPersonId,
                     transitionSpec = {
@@ -397,6 +461,7 @@ fun HomeScreen(
                             },
                             onEditItem = { itemToEdit = it },
                             onDeleteItem = { itemToDelete = it },
+                            onReceive = { receivePersonId = openGroup.personId; receiveOpen = true },
                             payoff = remember(allInstallments, openGroup.personId) {
                                 com.example.util.Forecast.payoff(allInstallments, openGroup.personId)
                             },
@@ -426,6 +491,15 @@ fun HomeScreen(
                             onAddSharedBill = { showAddSharedBillDialog = true },
                             onAiEntry = { viewModel.openAiBottomSheet() },
                             onOpenPerson = { openPersonId = it },
+                            onMarkPersonPaid = { g ->
+                                val open = g.items.filter { !it.isPaid && !it.isMyShare }
+                                open.forEach { viewModel.togglePayment(it) }
+                                themeScope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    val r = snackbarHostState.showSnackbar("${g.personName}: mês marcado como pago", actionLabel = "Desfazer", duration = SnackbarDuration.Long)
+                                    if (r == SnackbarResult.ActionPerformed) open.forEach { viewModel.togglePayment(it.copy(isPaid = true)) }
+                                }
+                            },
                             onEditItem = { itemToEdit = it },
                             onDeleteItem = { itemToDelete = it },
                             allInstallments = allInstallments,
@@ -437,6 +511,10 @@ fun HomeScreen(
                             },
                             onSelectMonth = { y, m -> viewModel.selectMonth(y, m) },
                             onGoToCurrentMonth = { viewModel.selectMonth(viewModel.currentYear, viewModel.currentMonth) },
+                            onReceive = { receivePersonId = null; receiveOpen = true },
+                            onOpenCards = { selectedTab = AppTab.CARD },
+                            onOpenProfile = { selectedTab = AppTab.SETTINGS },
+                            cardCount = cardPurchases.count { it.remainingInstallmentsCount > 0 },
                             searchBar = {
                                 ExpenseSearchFilterBar(
                                     query = expenseSearchQuery,
@@ -450,62 +528,68 @@ fun HomeScreen(
                     }
                 }
 
-                AppTab.CARD -> Column(modifier = Modifier.fillMaxSize()) {
-                    TabHeader(title = "Cartão", subtitle = "Compras parceladas e progresso")
-
-                    // Na aba Cartão a lista é maior: busca e filtros sempre visíveis
-                    ExpenseSearchFilterBar(
-                        query = expenseSearchQuery,
-                        onQueryChange = { expenseSearchQuery = it },
-                        selectedFilter = expenseListFilter,
-                        onFilterChange = { expenseListFilter = it },
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
-                    )
-
-                    LazyColumn(
-                        state = listStateCard,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 20.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        item {
-                            CardPurchasesProgressSection(
-                                purchases = filteredCardPurchases,
-                                isPrivacyMode = isPrivacyMode,
-                                onDeleteExpense = { id ->
-                                    viewModel.deleteExpense(id)
-                                    notifyUndo("Compra excluída")
-                                },
-                                emptyMessage = if (cardPurchases.isEmpty()) {
-                                    "Nenhuma compra parcelada cadastrada"
-                                } else {
-                                    "Nenhum resultado encontrado para esta pesquisa"
-                                }
-                            )
-                        }
-                    }
-                }
-
-                AppTab.DEBTS -> DebtsDetailScreen(
-                    viewModel = viewModel,
-                    onBack = { selectedTab = AppTab.HOME },
-                    onEditItem = { itemToEdit = it },
-                    onDeleteItem = { itemToDelete = it },
-                    showBackButton = false,
-                    bottomContentPadding = 140.dp
-                )
-
-                AppTab.SETTINGS -> SettingsScreen(
-                    isDarkMode = isDarkMode,
+                AppTab.CARD -> CardStackScreen(
+                    purchases = filteredCardPurchases,
+                    totalCount = cardPurchases.size,
                     isPrivacyMode = isPrivacyMode,
-                    peopleCount = allPeople.size,
-                    onToggleTheme = { requestThemeToggle(Offset.Unspecified) },
-                    onTogglePrivacy = { viewModel.togglePrivacyMode() },
-                    onManagePeopleClick = { showManagePeopleDialog = true },
-                    onBackupClick = { viewModel.openBackupDialog() }
+                    searchBar = {
+                        ExpenseSearchFilterBar(
+                            query = expenseSearchQuery,
+                            onQueryChange = { expenseSearchQuery = it },
+                            selectedFilter = expenseListFilter,
+                            onFilterChange = { expenseListFilter = it },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    },
+                    onAddPurchase = { personId -> purchasePersonId = personId; showAddCardExpenseDialog = true },
+                    onDelete = { id ->
+                        viewModel.deleteExpense(id)
+                        notifyUndo("Compra excluída")
+                    },
+                    people = allPeople,
+                    onReceive = { id -> receivePersonId = id; receiveOpen = true },
+                    onCharge = { id -> selectedTab = AppTab.HOME; openPersonId = id }
                 )
+
+                AppTab.DEBTS -> PeopleScreen(
+                    people = allPeople,
+                    installments = allInstallments,
+                    history = monthlyHistory,
+                    isPrivacyMode = isPrivacyMode,
+                    onAddPerson = { showManagePeopleDialog = true },
+                    onEditPeople = { showManagePeopleDialog = true },
+                    onReceive = { id -> receivePersonId = id; receiveOpen = true },
+                    onCharge = { id -> selectedTab = AppTab.HOME; openPersonId = id },
+                    onOpenMonth = { id, y, m ->
+                        viewModel.selectMonth(y, m)
+                        selectedTab = AppTab.HOME
+                        openPersonId = id
+                    }
+                )
+
+                AppTab.SETTINGS -> Unit // fica por cima das páginas
+            }
+            }
+
+            // Ajustes: entram por cima, vindos da direita (abertos pela foto de perfil)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = selectedTab == AppTab.SETTINGS,
+                enter = if (reducedMotion) fadeIn(tween(0)) else slideInHorizontally(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut)) { it / 3 } + fadeIn(tween(AcertoMotion.FAST)),
+                exit = if (reducedMotion) fadeOut(tween(0)) else slideOutHorizontally(tween(AcertoMotion.FAST, easing = AcertoMotion.SmoothOut)) { it / 3 } + fadeOut(tween(AcertoMotion.QUICK))
+            ) {
+                Box(Modifier.fillMaxSize().background(liquid.background)) {
+                    SettingsScreen(
+                        isDarkMode = isDarkMode,
+                        isPrivacyMode = isPrivacyMode,
+                        peopleCount = allPeople.size,
+                        onToggleTheme = { requestThemeToggle(Offset.Unspecified) },
+                        onTogglePrivacy = { viewModel.togglePrivacyMode() },
+                        onManagePeopleClick = { showManagePeopleDialog = true },
+                        onBackupClick = { viewModel.openBackupDialog() },
+                        onBack = { selectedTab = AppTab.HOME },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 40.dp + com.example.ui.components.navBarsBottom())
+                    )
+                }
             }
             }
 
@@ -520,25 +604,54 @@ fun HomeScreen(
                         .liquidBackdropBlur(radius = LiquidBlurDefaults.fade, progressive = true)
                 )
             }
+            // Cor do fim de cada tela: o fade e a barra acompanham essa cor ao trocar de aba
+            val screenBottom = when {
+                selectedTab == AppTab.CARD -> com.example.ui.theme.AcertoPalette.Header
+                selectedTab == AppTab.SETTINGS -> liquid.background
+                selectedTab == AppTab.HOME && openPersonId != null -> liquid.background
+                else -> liquid.sheetSurface
+            }
+            val bottomColor by animateColorAsState(
+                screenBottom,
+                tween(com.example.ui.components.glass.AcertoMotion.SLOW, easing = com.example.ui.components.glass.AcertoMotion.SmoothOut),
+                label = "screen_bottom_color"
+            )
+            val darkBottom = screenBottom.luminance() < 0.25f
+            val barColor by animateColorAsState(
+                // fundo escuro: a barra se mistura com ele (só a pílula clara aparece);
+                // fundo claro: pílula escura
+                if (darkBottom) screenBottom else com.example.ui.theme.AcertoPalette.NavBar,
+                tween(com.example.ui.components.glass.AcertoMotion.SLOW, easing = com.example.ui.components.glass.AcertoMotion.SmoothOut),
+                label = "bottom_bar_color"
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(150.dp)
-                    .graphicsLayer { alpha = if (backdropState != null) 0.75f else 1f }
-                    .background(liquid.bottomFade)
+                    .height(150.dp + com.example.ui.components.navBarsBottom())
+                    .background(
+                        Brush.verticalGradient(
+                            0f to bottomColor.copy(alpha = 0f),
+                            0.45f to bottomColor.copy(alpha = 0.72f),
+                            1f to bottomColor
+                        )
+                    )
+                    .testTag("bottom_fade")
             )
 
-            // Barra inferior Liquid Glass; à direita fica o botão + (SpeedDial, 58 dp)
+            // Barra inferior compacta e centralizada (sem botão + separado)
             AnimatedVisibility(
                 visibleState = bottomBarState,
                 enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 360f)) { it * 2 } + fadeIn(tween(200)),
                 exit = slideOutVertically(tween(220)) { it * 2 } + fadeOut(tween(160)),
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 20.dp, end = if (selectedTab == AppTab.HOME) 20.dp else 90.dp, bottom = 17.dp)
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 17.dp)
             ) {
             LiquidBottomBar(
+                containerColor = barColor,
+                indicatorPosition = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
                 selectedTab = selectedTab,
                 onTabSelected = { tab ->
                     // Se a busca/filtro estiver ativo (ex.: digitado na aba Cartão),
@@ -554,13 +667,6 @@ fun HomeScreen(
             )
             }
 
-            // Expandable Speed Dial FAB with Auto-Hide and Darkened Backdrop (inalterado)
-            if (selectedTab != AppTab.HOME) SpeedDialFab(
-                listState = activeListState,
-                onAiEntryClick = { viewModel.openAiBottomSheet() },
-                onSharedBillClick = { showAddSharedBillDialog = true },
-                onCardExpenseClick = { showAddCardExpenseDialog = true }
-            )
         }
 
         // Avisos curtos em vidro, acima da barra inferior
@@ -611,7 +717,7 @@ fun HomeScreen(
                         Text(
                             action,
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (liquid.isDark) androidx.compose.ui.graphics.Color(0xFFF0354B) else liquid.pillPrimaryBg
+                            color = liquid.textPrimary
                         )
                     }
                 }
@@ -642,57 +748,99 @@ fun HomeScreen(
                     .testTag("theme_reveal_overlay")
             )
         }
-    }
-    }
 
-    // Dialog: Nova Compra no Cartão
-    if (showAddCardExpenseDialog) {
-        AddCardExpenseDialog(
-            people = allPeople,
-            currentYear = selectedYear,
-            currentMonth = selectedMonth,
-            onDismiss = { showAddCardExpenseDialog = false },
-            onAddPerson = { showManagePeopleDialog = true },
-            onConfirm = { title, totalAmount, person, installments, startYear, startMonth, notes, markPastAsPaid ->
-                viewModel.addCardPurchase(
-                    title = title,
-                    totalAmount = totalAmount,
-                    person = person,
-                    totalInstallments = installments,
-                    startYear = startYear,
-                    startMonth = startMonth,
-                    notes = notes,
-                    markPastInstallmentsAsPaid = markPastAsPaid
-                )
-                showAddCardExpenseDialog = false
-                notify("Compra salva")
+        // Receber: grade de pessoas → teclado-calculadora → deslizar → sucesso
+        androidx.compose.animation.AnimatedVisibility(
+            visible = receiveOpen,
+            enter = fadeIn(tween(AcertoMotion.FAST)),
+            exit = fadeOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut)) +
+                androidx.compose.animation.scaleOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut), targetScale = 1.04f)
+        ) {
+            val targets = remember(allPeople, allInstallments, selectedYear, selectedMonth) {
+                allPeople.map { p ->
+                    val open = allInstallments.filter { it.personId == p.id && !it.isMyShare && !it.isPaid }
+                    ReceiveTarget(
+                        personId = p.id,
+                        name = p.name,
+                        colorHex = p.colorHex,
+                        avatar = p.avatar,
+                        monthPending = Money.toReal(open.filter { it.year == selectedYear && it.month == selectedMonth }.sumOf { it.amount }),
+                        totalPending = Money.toReal(open.sumOf { it.amount })
+                    )
+                }
             }
-        )
-    }
+            ReceiveFlow(
+                targets = targets,
+                initialPersonId = receivePersonId,
+                monthName = CurrencyFormatter.getMonthName(selectedMonth).lowercase(),
+                isPrivacyMode = isPrivacyMode,
+                onConfirm = { id, amount -> viewModel.receivePayment(id, amount) },
+                onCharge = { id ->
+                    receiveOpen = false
+                    selectedTab = AppTab.HOME
+                    openPersonId = id
+                },
+                onClose = { receiveOpen = false }
+            )
+        }
 
-    // Dialog: Nova Conta Dividida
-    if (showAddSharedBillDialog) {
-        AddSharedBillDialog(
-            people = allPeople,
-            currentYear = selectedYear,
-            currentMonth = selectedMonth,
-            onDismiss = { showAddSharedBillDialog = false },
-            onAddPerson = { showManagePeopleDialog = true },
-            onConfirm = { title, totalAmount, participants, startYear, startMonth, isRecurring, count, notes ->
-                viewModel.addSharedBillWithParticipants(
-                    title = title,
-                    totalAmount = totalAmount,
-                    participants = participants,
-                    startYear = startYear,
-                    startMonth = startMonth,
-                    isRecurring = isRecurring,
-                    recurrenceMonthsCount = count,
-                    notes = notes
-                )
-                showAddSharedBillDialog = false
-                notify("Conta dividida salva")
-            }
-        )
+        // Nova compra em etapas: quem comprou → valor e parcelas → detalhes
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showAddCardExpenseDialog,
+            enter = fadeIn(tween(AcertoMotion.FAST)),
+            exit = fadeOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut)) +
+                androidx.compose.animation.scaleOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut), targetScale = 1.04f)
+        ) {
+            NewPurchaseFlow(
+                people = allPeople,
+                initialPersonId = purchasePersonId,
+                currentYear = selectedYear,
+                currentMonth = selectedMonth,
+                onAddPerson = { showManagePeopleDialog = true },
+                onConfirm = { title, totalAmount, person, installments, startYear, startMonth, notes, markPastAsPaid ->
+                    viewModel.addCardPurchase(
+                        title = title,
+                        totalAmount = totalAmount,
+                        person = person,
+                        totalInstallments = installments,
+                        startYear = startYear,
+                        startMonth = startMonth,
+                        notes = notes,
+                        markPastInstallmentsAsPaid = markPastAsPaid
+                    )
+                },
+                onClose = { showAddCardExpenseDialog = false; purchasePersonId = null }
+            )
+        }
+
+        // Dividir conta em etapas: valor → com quem → detalhes
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showAddSharedBillDialog,
+            enter = fadeIn(tween(AcertoMotion.FAST)),
+            exit = fadeOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut)) +
+                androidx.compose.animation.scaleOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut), targetScale = 1.04f)
+        ) {
+            SplitBillFlow(
+                people = allPeople,
+                currentYear = selectedYear,
+                currentMonth = selectedMonth,
+                onAddPerson = { showManagePeopleDialog = true },
+                onConfirm = { title, totalAmount, participants, startYear, startMonth, isRecurring, count, notes ->
+                    viewModel.addSharedBillWithParticipants(
+                        title = title,
+                        totalAmount = totalAmount,
+                        participants = participants,
+                        startYear = startYear,
+                        startMonth = startMonth,
+                        isRecurring = isRecurring,
+                        recurrenceMonthsCount = count,
+                        notes = notes
+                    )
+                },
+                onClose = { showAddSharedBillDialog = false }
+            )
+        }
+    }
     }
 
     // Dialog: Editar Lançamento (Conta Dividida ou Compra no Cartão)
@@ -821,6 +969,10 @@ fun HomeScreen(
                 val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
                 val suggestedFileName = "acerto-backup-$dateStr.json"
                 exportLauncher.launch(suggestedFileName)
+            },
+            onExportCsvClick = {
+                val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+                csvLauncher.launch("acerto-parcelas-$dateStr.csv")
             },
             onImportClick = {
                 importLauncher.launch(arrayOf("application/json", "text/*", "*/*"))

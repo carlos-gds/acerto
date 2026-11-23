@@ -11,19 +11,19 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 <br/>
 
 <a href="https://github.com/carlos-gds/acerto/releases/latest">
-  <img src="https://img.shields.io/badge/⬇%20Baixar%20APK-Android%207%2B-C8152B?style=for-the-badge&logo=android&logoColor=white" alt="Baixar APK" />
+  <img src="https://img.shields.io/badge/⬇%20Baixar%20APK-Android%207%2B-16181A?style=for-the-badge&logo=android&logoColor=FBF049" alt="Baixar APK" />
 </a>
 
 <br/><br/>
 
-![Versão](https://img.shields.io/github/v/release/carlos-gds/acerto?style=flat-square&color=C8152B&label=vers%C3%A3o)
-![Tamanho](https://img.shields.io/badge/APK-3%20MB-111217?style=flat-square&logo=android&logoColor=white)
+![Versão](https://img.shields.io/github/v/release/carlos-gds/acerto?style=flat-square&color=FBF049&labelColor=16181A&label=vers%C3%A3o)
+![Tamanho](https://img.shields.io/badge/APK-3%20MB-16181A?style=flat-square&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)
 ![Room](https://img.shields.io/badge/Room-SQLite-3DDC84?style=flat-square&logo=sqlite&logoColor=white)
-![Min SDK](https://img.shields.io/badge/minSdk-24-F59E0B?style=flat-square&logo=android&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-97%20passando-10B981?style=flat-square&logo=junit5&logoColor=white)
-![Offline](https://img.shields.io/badge/dados-100%25%20no%20aparelho-EC4899?style=flat-square)
+![Min SDK](https://img.shields.io/badge/minSdk-24-24A9EE?style=flat-square&logo=android&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-111%20passando-32FFC6?style=flat-square&logo=junit5&logoColor=16181A)
+![Offline](https://img.shields.io/badge/dados-100%25%20no%20aparelho-B794F6?style=flat-square)
 
 </div>
 
@@ -34,19 +34,26 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/inicio_escuro.jpg" width="230" alt="Início no tema escuro" /><br/><sub><b>Início</b> · quanto falta receber</sub></td>
-    <td align="center"><img src="docs/screenshots/inicio_claro.jpg" width="230" alt="Início no tema claro" /><br/><sub><b>Início</b> · tema claro</sub></td>
-    <td align="center"><img src="docs/screenshots/proximos_meses.jpg" width="230" alt="Próximos meses e contas fixas" /><br/><sub><b>Próximos meses</b> · previsão e contas fixas</sub></td>
+    <td align="center"><img src="docs/screenshots/inicio_claro.png" width="230" alt="Início" /><br/><sub><b>Início</b> · quanto falta receber no mês</sub></td>
+    <td align="center"><img src="docs/screenshots/inicio_escuro.png" width="230" alt="Início no tema escuro" /><br/><sub><b>Início</b> · tema escuro</sub></td>
+    <td align="center"><img src="docs/screenshots/cartao.png" width="230" alt="Cartão" /><br/><sub><b>Cartão</b> · um cartão por pessoa</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/pessoa_claro.jpg" width="230" alt="Tela da pessoa" /><br/><sub><b>Pessoa</b> · marcar pago, cobrar, quando quita</sub></td>
-    <td align="center"><img src="docs/screenshots/pessoas_claro.jpg" width="230" alt="Pessoas" /><br/><sub><b>Pessoas</b> · mês ou geral</sub></td>
-    <td align="center"><img src="docs/screenshots/ajustes_escuro.jpg" width="230" alt="Ajustes" /><br/><sub><b>Ajustes</b> · bloqueio, lembrete, PIX</sub></td>
+    <td align="center"><img src="docs/screenshots/compra_quem.png" width="230" alt="Nova compra: quem comprou" /><br/><sub><b>Nova compra 1/3</b> · quem comprou</sub></td>
+    <td align="center"><img src="docs/screenshots/compra_valor.png" width="230" alt="Nova compra: valor e parcelas" /><br/><sub><b>Nova compra 2/3</b> · valor, conta e parcelas</sub></td>
+    <td align="center"><img src="docs/screenshots/compra_detalhes.png" width="230" alt="Nova compra: detalhes" /><br/><sub><b>Nova compra 3/3</b> · nome e deslizar para salvar</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/pessoas.png" width="230" alt="Pessoas" /><br/><sub><b>Pessoas</b> · todos e o histórico mensal</sub></td>
+    <td align="center"><img src="docs/screenshots/perfil.png" width="230" alt="Perfil da pessoa" /><br/><sub><b>Perfil</b> · quanto deve, mês a mês</sub></td>
+    <td align="center"><img src="docs/screenshots/receber.png" width="230" alt="Receber" /><br/><sub><b>Receber</b> · teclado-calculadora</sub></td>
   </tr>
 </table>
 
-<img src="docs/screenshots/cobranca.jpg" width="360" alt="Imagem de cobrança enviada pelo WhatsApp" /><br/>
-<sub><b>Cobrança</b> · imagem enviada junto com a mensagem (dados de exemplo)</sub>
+<img src="docs/screenshots/sucesso.png" width="200" alt="Tela de sucesso" />
+&nbsp;&nbsp;
+<img src="docs/screenshots/cobranca.jpg" width="300" alt="Imagem de cobrança enviada pelo WhatsApp" /><br/>
+<sub><b>Sucesso</b> · fecha sozinha &nbsp;·&nbsp; <b>Cobrança</b> · imagem enviada com a mensagem (dados de exemplo)</sub>
 </div>
 
 ---
@@ -55,22 +62,23 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 
 | | Recurso | Como funciona |
 |:-:|---|---|
-| 💳 | **Compras no cartão** | Registre a compra parcelada feita para alguém e acompanhe parcela por parcela. |
-| 🧾 | **Contas divididas** | Água, luz, internet, aluguel, assinaturas: em partes iguais ou valores personalizados. |
-| 🗓️ | **Mês inteligente** | Abre no mês mais antigo com pendência e só avança quando ele estiver todo pago. Atalho *Ir para o mês atual* quando outro mês está aberto. |
-| 📈 | **Próximos meses** | Gráfico de quanto falta receber nos próximos 6 meses e, em cada pessoa, quanto falta no total e quando ela quita. |
-| 💸 | **Cobrança com PIX** | Envia pelo WhatsApp uma **imagem** com as parcelas e o total, e uma mensagem curta com seu nome, banco e chave PIX. O tipo da chave (CPF, celular, e-mail, CNPJ ou aleatória) é detectado sozinho. |
-| ➗ | **Pagamento parcial** | A pessoa pagou só uma parte? Registre o valor e o restante continua pendente. |
-| ↩️ | **Desfazer exclusão** | Apagou sem querer? Toque em *Desfazer* no aviso. |
-| 🔔 | **Lembrete** | No dia 1, ou 3 dias antes do vencimento da fatura, uma notificação mostra quanto falta receber. |
-| 🔁 | **Contas fixas** | Resumo das contas recorrentes divididas: quantas são e a sua parte por mês. |
-| 👥 | **Pessoas com avatar** | Cor da paleta, telefone formatado e avatar neutro, masculino ou feminino. |
-| ⚡ | **Entrada rápida com IA** | Escreva *"Tênis de 300 em 3x para o Lucas"* e confirme. |
-| 🔍 | **Pesquisa e filtros** | Por pessoa ou compra, com filtros de pendentes e quitadas. |
-| 🔐 | **Bloqueio do app** | Digital, rosto ou a senha do celular ao abrir. |
-| 🙈 | **Modo privacidade** | Esconde os valores, continua ligado ao reabrir e pede confirmação antes de compartilhar. |
-| 💾 | **Backup em JSON** | Exporte e restaure quando quiser, inclusive backups antigos. |
-| 🌗 | **Tema claro e escuro** | O escuro tem fundo quase preto, ótimo em telas AMOLED. |
+| 💳 | **Compras no cartão** | Em 3 etapas: quem comprou → valor e parcelas → o que foi. Na aba Cartão, cada pessoa vira um cartão colorido com quanto falta e as compras dela. |
+| 🧾 | **Contas divididas** | Valor → com quem (você incluído) → nome. Divisão igual ou personalizada, com aviso de quanto falta para fechar o total. Conta fixa repete por 12 meses. |
+| 🔢 | **Teclado-calculadora** | Vírgula automática como nos apps de banco (1, 2, 3 → R$ 1,23), tecla `00` e contas como `143,00 × 2`. |
+| 👉 | **Deslizar para confirmar** | Receber e salvar terminam com um deslize para a direita e uma tela verde que fecha sozinha. |
+| 💵 | **Receber** | Escolha a pessoa, digite quanto ela pagou e o app quita as parcelas mais antigas primeiro (com pagamento parcial se sobrar). |
+| 👥 | **Pessoas e perfil** | Todos numa grade, com o total em aberto de cada um. No perfil: quanto deve, quanto já pagou, mês a mês e as compras. |
+| 🗓️ | **Mês inteligente** | Abre no mês mais antigo com pendência e só avança quando ele estiver todo pago. Atalho *Ir para o mês atual*. |
+| ✨ | **Destaques** | Frases automáticas: quem está atrasado, quem mais deve, quanto entra no mês que vem e quanto já entrou. |
+| 📈 | **Próximos meses** | Gráfico do que falta receber nos próximos 6 meses e data de quitação por pessoa. |
+| 👈 | **Deslizar para pagar** | Na lista da Início, arraste a pessoa para a esquerda e o mês dela fica pago (com *Desfazer*). |
+| 💸 | **Cobrança com PIX** | Imagem com as parcelas e uma mensagem curta com seu nome, banco e chave PIX (tipo detectado sozinho). |
+| 📲 | **Widget e atalhos** | Widget com quanto falta receber; segure o ícone para Receber, Nova compra ou Lançar com IA. |
+| 🔔 | **Lembrete** | No dia 1, ou 3 dias antes do vencimento da fatura. |
+| ⚡ | **Entrada com IA** | Escreva *"Tênis de 300 em 3x para o Lucas"* e confirme. |
+| 🔐 | **Bloqueio e privacidade** | Digital, rosto ou senha ao abrir; modo privacidade esconde os valores (inclusive no widget). |
+| 💾 | **Backup e planilha** | Backup em JSON para restaurar e exportação em CSV para Excel e Google Planilhas. |
+| 🖼️ | **Sua foto** | Foto de perfil no topo da Início; tocar nela abre os Ajustes. |
 
 ---
 
@@ -80,27 +88,27 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 <tr>
 <td width="50%" valign="top">
 
-### 🎯 Uma pergunta por tela
+### 🖤 Visual
 
-A Início responde **"quanto falta receber este mês, e de quem?"**. O maior bloco é esse número, com quem deve, a comparação com o mês anterior e os números de recebido e total. Logo abaixo vêm as ações, uma linha por pessoa e a previsão dos próximos meses.
+Cabeçalho escuro com um brilho azul-esverdeado, folha branca que sobe por cima com o conteúdo, cartões coloridos e pílulas arredondadas. A barra de baixo tem **3 abas (Pessoas, Início e Cartão)**, troca de aba **arrastando para o lado** e some ao rolar. Atrás dela o conteúdo some num fade na cor de cada tela.
 
-Segue o **Apple HIG** (texto de 34/17/15/13, toque mínimo de 44 pt, fonte grande do sistema respeitada) e os princípios do **Taste Skill**: superfícies sólidas, sem vidro, sombra ou degradê.
+Segue o **Apple HIG** (toque mínimo de 44 pt, fonte grande do sistema respeitada, contraste AA) e funciona no tema claro e no escuro.
 
 </td>
 <td width="50%" valign="top">
 
-### 🎨 Cores com significado
+### 🎨 Cores
 
 | Cor | Uso |
 |---|---|
-| ⬛ **Noite** `#0C0D10` | Fundo do tema escuro |
-| ⬛ **Obsidian** `#111217` | Texto do tema claro |
-| ⬜ **Ice** `#EEF1F4` | Fundo do tema claro |
-| 🟥 **Vermelho** `#C8152B` | Só marca: Nova compra, aba ativa, mês aberto no gráfico |
-| 🟧 **Âmbar** | Pendente |
-| 🟩 **Verde** | Pago |
+| ⬛ **Grafite** `#1C2021` | Cabeçalho e tema escuro |
+| ⬜ **Branco** `#FFFFFF` | Folha de conteúdo (tema claro) |
+| 🟨 **Amarelo** `#FBF049` | Cartões, pendente |
+| 🟩 **Verde-água** `#32FFC6` | Cartões, pago |
+| 🟦 **Azul** `#24A9EE` | Cartões, mês que vem |
+| 🟢 **Limão** `#2BF831` | Tela de sucesso |
 
-Pessoas usam uma paleta fixa (azul, verde, turquesa, violeta, rosa, laranja, índigo, ciano), sem vermelho nem âmbar para nada parecer alerta.
+Valores pendentes em âmbar e pagos em verde, sempre com texto junto (nunca só a cor).
 
 </td>
 </tr>
@@ -108,25 +116,26 @@ Pessoas usam uma paleta fixa (azul, verde, turquesa, violeta, rosa, laranja, ín
 
 ### 🎬 Movimento
 
-Transições inspiradas no [transitions.dev](https://transitions.dev): sair em 150 ms, entrar em 250 ms, curva *smooth-out* e deslocamentos curtos.
+Molas e curvas inspiradas no [transitions.dev](https://transitions.dev): entrar em 250 ms, sair em 150 ms, curva *smooth-out*.
 
-- ↔️ Início e pessoa lado a lado
-- 🔢 Total que gira só nos dígitos que mudam
-- ✅ Check de sucesso ao marcar como pago
-- 📊 Colunas do gráfico que crescem em sequência
-- 🔤 Troca suave de mês e de status
+- 📄 Folha branca que sobe com mola e o fundo que recua e escurece
+- ➡️ Etapas que deslizam para o lado, na direção do avanço
+- ⌨️ Pílula escura que segue o dedo de tecla em tecla
+- 🃏 Cartões e pessoas que entram em cascata
+- ✅ Check que se desenha na tela verde, que some sozinha
+- 🔢 Dígitos do valor que entram um a um
 - ♿ Movimento reduzido do sistema respeitado
 
 ---
 
 ## 🚀 Instalação
 
-1. Abra a página de [**Releases**](https://github.com/carlos-gds/acerto/releases/latest) e baixe o arquivo `Acerto-vX.Y.apk` mais recente (cerca de 3 MB).
+1. Abra a página de [**Releases**](https://github.com/carlos-gds/acerto/releases/latest) e baixe o `Acerto-vX.Y.apk` mais recente (cerca de 3 MB).
 2. Abra o arquivo no celular e permita *instalar apps de fontes desconhecidas*, se o Android pedir.
 3. Pronto: requer **Android 7.0** ou superior. Novas versões instalam por cima e mantêm seus dados.
 
-> [!NOTE]
-> As versões publicadas são otimizadas (R8) e assinadas com a mesma chave, por isso uma atualiza a outra. Se um dia a assinatura mudar, faça um backup pelo app antes de desinstalar.
+> [!IMPORTANT]
+> **Vindo da versão 1.3.4 ou anterior?** A chave de assinatura mudou na 1.4, então o Android não instala por cima. Antes, faça um backup em **Ajustes → Backup**, anote sua chave PIX, desinstale a versão antiga, instale a nova e restaure o backup. Da 1.4 em diante, uma versão atualiza a outra normalmente.
 
 ---
 
@@ -141,7 +150,7 @@ Transições inspiradas no [transitions.dev](https://transitions.dev): sair em 1
 - **Room** com migrations versionadas e esquema exportado em `app/schemas`
 - **Coroutines** e **Flow**, **MVVM** com Repository pattern
 - **Release otimizada:** R8, recursos enxutos e baseline profiles das bibliotecas
-- Recursos nativos, sem bibliotecas extras: notificações e `AlarmManager` (lembrete), `BiometricPrompt` (bloqueio), `FileProvider` (imagem de cobrança) e Canvas (desenho da imagem)
+- Recursos nativos, sem bibliotecas extras: notificações e `AlarmManager` (lembrete), `BiometricPrompt` (bloqueio), `FileProvider` (imagem de cobrança), Canvas (desenho da imagem), `AppWidgetProvider` (widget) e atalhos estáticos
 - **Gemini API** (via OkHttp) para a entrada rápida, opcional
 - **Gradle Wrapper** e Version Catalog
 - **JUnit**, **Robolectric**, **Compose UI Test** e **Roborazzi**
@@ -162,10 +171,10 @@ app/src/main/java/com/example/
 ├── ui/
 │   ├── components/   # Cards, diálogos, barra inferior, controles, avatares
 │   │   └── glass/    # Superfícies, movimento e transições
-│   ├── screens/      # Início, pessoa, Pessoas, Ajustes e bloqueio
+│   ├── screens/      # Início, Pessoas e perfil, Cartão, fluxos em etapas, Receber, Ajustes
 │   ├── theme/        # Cores, tokens, tipografia e medidas
 │   └── viewmodel/    # Estado da interface e ações
-└── util/             # Dinheiro, PIX, previsão, lembrete, imagem de cobrança, bloqueio
+└── util/             # Dinheiro, calculadora, PIX, previsão, destaques, CSV, widget, lembrete, bloqueio
 ```
 
 Os valores ficam no banco em **centavos (`Long`)**. A conversão para reais acontece só na tela, o que evita erros de arredondamento. O pagamento parcial divide a parcela em duas linhas (parte paga e restante), sem mudar o esquema do banco.
@@ -223,6 +232,7 @@ O `.env` está no `.gitignore`. A chave é enviada no cabeçalho `x-goog-api-key
 - 💳 Chave PIX, nome e banco ficam só no aparelho, fora do backup.
 - 🗂️ Backups são arquivos JSON que só você controla.
 - 🧱 Gravações de vários passos rodam em transação (tudo ou nada).
+- 📜 Detalhes em [PRIVACY.md](PRIVACY.md).
 
 ---
 
@@ -236,9 +246,15 @@ O `.env` está no `.gitignore`. A chave é enviada no cabeçalho `x-goog-api-key
 - [x] 🔐 Bloqueio do app com biometria ou senha
 - [x] ♿ Layout que se adapta à fonte grande do sistema
 - [x] 🚀 Versão otimizada (APK de 3 MB, bem mais fluido)
-- [ ] 🎨 Cartão, Pessoas e Ajustes no mesmo estilo da Início
+- [x] 🖤 Visual novo: cabeçalho escuro, cartões empilhados e teclado de receber
+- [x] 📲 Widget, atalhos no ícone, destaques e deslizar para marcar pago
+- [x] 📄 Exportar planilha CSV
+- [x] 🪜 Nova compra e Dividir conta em etapas, com teclado-calculadora
+- [x] 👥 Pessoas com perfil e histórico; Cartão separado por pessoa
+- [x] 👉 Trocar de aba arrastando e deslizar para confirmar
 - [ ] 🤖 Entrada com IA via Firebase AI (sem chave no APK)
 - [ ] 🔑 Chave de assinatura própria para distribuição
+- [ ] ✏️ Editar lançamentos também em etapas
 
 ---
 

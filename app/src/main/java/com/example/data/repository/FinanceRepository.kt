@@ -274,6 +274,33 @@ class FinanceRepository(
         true
     }
 
+    /**
+     * "Receber": aplica um valor às parcelas pendentes da pessoa, da mais antiga
+     * para a mais nova. Parcelas cobertas por inteiro ficam pagas; se sobrar
+     * uma parte, ela vira pagamento parcial da próxima. Nunca passa do total em
+     * aberto. Retorna quanto foi aplicado, em centavos.
+     */
+    suspend fun receivePayment(personId: Long, cents: Long): Long = tx {
+        if (cents <= 0) return@tx 0L
+        val pending = installmentDao.getAllInstallmentsList()
+            .filter { it.personId == personId && !it.isMyShare && !it.isPaid }
+            .sortedWith(compareBy({ it.year }, { it.month }, { it.installmentNumber }, { it.id }))
+        var left = cents
+        val now = System.currentTimeMillis()
+        for (item in pending) {
+            if (left <= 0) break
+            if (left >= item.amount) {
+                installmentDao.updateInstallment(item.copy(isPaid = true, paidAt = now))
+                left -= item.amount
+            } else {
+                installmentDao.updateInstallment(item.copy(amount = item.amount - left))
+                installmentDao.insertInstallments(listOf(item.copy(id = 0, amount = left, isPaid = true, paidAt = now)))
+                left = 0
+            }
+        }
+        cents - left
+    }
+
     suspend fun getInstallmentExpenseId(installmentId: Long): Long? =
         installmentDao.getInstallmentById(installmentId)?.expenseId
 

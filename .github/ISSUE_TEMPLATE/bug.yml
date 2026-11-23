@@ -1,0 +1,30 @@
+name: 🐞 Problema
+description: Algo não funciona como deveria
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu?
+      description: Conte o que você fez e o que apareceu.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que você esperava?
+  - type: input
+    id: version
+    attributes:
+      label: Versão do Acerto
+      placeholder: "1.4"
+  - type: input
+    id: device
+    attributes:
+      label: Celular e versão do Android
+      placeholder: "Galaxy S25 FE, Android 16"
+  - type: textarea
+    id: screens
+    attributes:
+      label: Prints (opcional)
+      description: Esconda valores e nomes com o modo privacidade antes do print.

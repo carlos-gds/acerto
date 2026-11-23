@@ -60,62 +60,65 @@ import com.example.ui.theme.LocalLiquidGlassColors
 
 /** Abas principais do app. */
 enum class AppTab(val label: String, val icon: ImageVector, val testTag: String) {
+    DEBTS("Pessoas", Icons.Default.People, "bottom_nav_debts"),
     HOME("Início", Icons.Default.Home, "bottom_nav_home"),
     CARD("Cartão", Icons.Default.CreditCard, "bottom_nav_card"),
-    DEBTS("Pessoas", Icons.Default.People, "bottom_nav_debts"),
+    /** Fora da barra: abre tocando na foto de perfil da Início. */
     SETTINGS("Ajustes", Icons.Default.Settings, "bottom_nav_settings")
 }
 
 /**
  * Barra de navegação inferior Liquid Glass (Figma: pílula de vidro flutuante e
  * translúcida). O item ativo fica numa pílula periwinkle translúcida que desliza
- * com mola entre os itens, com glow suave. O botão + (SpeedDial) fica fora, à direita.
+ * com mola entre os itens. Compacta e centralizada; a cor acompanha o fundo da tela.
  */
 @Composable
 fun LiquidBottomBar(
     selectedTab: AppTab,
     onTabSelected: (AppTab) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Cor da pílula: escura sobre telas claras; a cor do fundo sobre telas escuras. */
+    containerColor: androidx.compose.ui.graphics.Color = com.example.ui.theme.AcertoPalette.NavBar,
+    /** Posição da pílula (0 = Pessoas, 1 = Início, 2 = Cartão), contínua enquanto arrasta. */
+    indicatorPosition: (() -> Float)? = null
 ) {
     val liquid = LocalLiquidGlassColors.current
-    val tabs = AppTab.entries
+    val tabs = listOf(AppTab.DEBTS, AppTab.HOME, AppTab.CARD)
     // Android 12+ com blur: vidro bem transparente sobre o conteúdo desfocado (como no Figma).
     // Fallback (Android 7–11 ou blur desligado): base densa para o conteúdo de trás não poluir a barra.
     val hasBackdrop = LocalLiquidBackdrop.current != null
     // Visual Acerto: barra sólida (sem vidro), na cor das superfícies.
     val barTint = liquid.headerSurface
 
+    // Visual Noir: pílula escura flutuante, só ícones; o item ativo fica numa pílula clara
     BoxWithConstraints(
+        // compacta e centralizada, como na referência
         modifier = modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .liquidGlass(
-                shape = LiquidShapes.pill,
-                surface = barTint,
-                elevation = LocalLiquidElevation.current.high,
-                blur = LiquidBlurDefaults.bar
-            )
-            .background(liquid.headerSurface, LiquidShapes.pill)
-            .padding(5.dp)
+            .width(72.dp * tabs.size + 12.dp)
+            .height(60.dp)
+            .clip(LiquidShapes.pill)
+            .background(containerColor)
+            .padding(6.dp)
             .testTag("liquid_bottom_bar")
     ) {
         val itemWidth = maxWidth / tabs.size
-        val indicatorOffset by animateDpAsState(
-            targetValue = itemWidth * selectedTab.ordinal,
-            animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f),
+        val tapOffset by animateDpAsState(
+            targetValue = itemWidth * tabs.indexOf(selectedTab).coerceAtLeast(0),
+            animationSpec = spring(dampingRatio = 0.8f, stiffness = 420f),
             label = "bottom_bar_indicator"
         )
-
-        // Pílula ativa deslizante (periwinkle translúcido + borda especular + glow)
         Box(
             modifier = Modifier
-                .offset(x = indicatorOffset)
+                // segue a página enquanto arrasta; sem pager, anima pelo toque
+                .offset {
+                    val x = indicatorPosition?.let { pos -> itemWidth.toPx() * pos().coerceIn(0f, (tabs.size - 1).toFloat()) } ?: tapOffset.toPx()
+                    androidx.compose.ui.unit.IntOffset(x.roundToIntCompat(), 0)
+                }
                 .width(itemWidth)
                 .fillMaxHeight()
                 .clip(LiquidShapes.pill)
-                .background(liquid.cardSurfaceVariant)
+                .background(com.example.ui.theme.AcertoPalette.NavSelected)
         )
-
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,16 +148,8 @@ private fun RowScope.BottomBarItem(
         animationSpec = LiquidMotion.selection,
         label = "bottom_item_progress"
     )
-    val labelColor by animateColorAsState(
-        targetValue = if (selected) (if (liquid.isDark) Color(0xFFF0354B) else liquid.pillPrimaryBg) else liquid.textSecondary,
-        label = "bottom_item_label"
-    )
     val iconColor by animateColorAsState(
-        targetValue = if (selected) {
-            if (liquid.isDark) Color(0xFFF0354B) else liquid.pillPrimaryBg
-        } else {
-            liquid.textSecondary
-        },
+        targetValue = if (selected) androidx.compose.ui.graphics.Color(0xFF16181A) else androidx.compose.ui.graphics.Color(0xFF9A9EA1),
         label = "bottom_item_icon"
     )
 
@@ -174,32 +169,19 @@ private fun RowScope.BottomBarItem(
             .testTag(tab.testTag),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = tab.icon,
-                contentDescription = null,
-                tint = iconColor,
-                modifier = Modifier
-                    .size(20.dp)
-                    // Ícone ativo cresce levemente e ganha glow (fase de desenho)
-                    .graphicsLayer {
-                        val s = 1f + 0.12f * progress.value
-                        scaleX = s
-                        scaleY = s
-                    }
-                    .glow(LiquidAccent, radius = 18.dp) { progress.value * 0.7f }
-            )
-            Text(
-                text = tab.label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = MaterialTheme.typography.labelSmall.fontSize *
-                        (1.3f / androidx.compose.ui.platform.LocalDensity.current.fontScale).coerceAtMost(1f)
-                ),
-                color = labelColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Icon(
+            imageVector = tab.icon,
+            contentDescription = tab.label,
+            tint = iconColor,
+            modifier = Modifier
+                .size(24.dp)
+                .graphicsLayer {
+                    val sc = 1f + 0.08f * progress.value
+                    scaleX = sc
+                    scaleY = sc
+                }
+        )
     }
 }
+
+private fun Float.roundToIntCompat(): Int = kotlin.math.round(this).toInt()

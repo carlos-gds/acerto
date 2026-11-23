@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -334,6 +335,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     fun togglePayment(item: InstallmentItem) {
         viewModelScope.launch {
             repository.setInstallmentPaid(item.id, !item.isPaid)
+        }
+    }
+
+    /** "Receber": aplica o valor às parcelas pendentes da pessoa (mais antigas primeiro). */
+    fun receivePayment(personId: Long, amount: Double) {
+        viewModelScope.launch {
+            repository.receivePayment(personId, com.example.util.Money.fromReal(amount))
         }
     }
 
@@ -716,6 +724,23 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 )
             } catch (e: Exception) {
                 _backupUiState.value = BackupUiState.Error("Falha ao exportar backup: ${e.message ?: "Erro desconhecido"}")
+            }
+        }
+    }
+
+    /** Planilha com todas as parcelas (para Excel / Google Planilhas). */
+    fun exportCsvToUri(contentResolver: android.content.ContentResolver, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _backupUiState.value = BackupUiState.Exporting
+            try {
+                val items = repository.getAllInstallments().first()
+                contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(com.example.util.CsvExport.build(items).toByteArray(Charsets.UTF_8))
+                    out.flush()
+                } ?: throw IllegalStateException("Não foi possível abrir o arquivo para escrita.")
+                _backupUiState.value = BackupUiState.Success("Planilha exportada com ${items.size} parcelas.")
+            } catch (e: Exception) {
+                _backupUiState.value = BackupUiState.Error("Falha ao exportar planilha: ${e.message ?: "Erro desconhecido"}")
             }
         }
     }

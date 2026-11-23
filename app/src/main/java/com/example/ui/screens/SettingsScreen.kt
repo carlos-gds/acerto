@@ -45,6 +45,10 @@ import com.example.ui.components.glass.liquidTextFieldColors
 import com.example.util.PixKeyStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -78,7 +82,8 @@ fun SettingsScreen(
     onManagePeopleClick: () -> Unit,
     onBackupClick: () -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(bottom = 140.dp)
+    onBack: (() -> Unit)? = null,
+    contentPadding: PaddingValues = PaddingValues(bottom = 140.dp + com.example.ui.components.navBarsBottom())
 ) {
     val liquid = LocalLiquidGlassColors.current
 
@@ -91,22 +96,52 @@ fun SettingsScreen(
             .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-            Text(
-                text = buildAnnotatedString {
-                    append("Ajustes")
-                    withStyle(SpanStyle(color = liquid.accent)) { append(".") }
-                },
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = liquid.textPrimary
-            )
-            Text(
-                text = "Aparência, privacidade e seus dados",
-                style = MaterialTheme.typography.bodySmall,
-                color = liquid.textSecondary
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (onBack != null) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(liquid.cardSurface)
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Voltar", onClick = onBack)
+                        .testTag("settings_back"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = liquid.textPrimary, modifier = Modifier.size(22.dp))
+                }
+            }
+            Column(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
+                Text(
+                    text = buildAnnotatedString {
+                        append("Ajustes")
+                        withStyle(SpanStyle(color = liquid.accent)) { append(".") }
+                    },
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = liquid.textPrimary
+                )
+                Text(
+                    text = "Aparência, privacidade e seus dados",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = liquid.textSecondary
+                )
+            }
         }
-
+        // Perfil: a foto que aparece no topo da Início
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(liquid.cardSurface)
+                .padding(16.dp)
+        ) {
+            com.example.ui.components.ProfileAvatar(size = 64.dp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Sua foto", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = liquid.textPrimary)
+                Text("Toque na foto para escolher ou trocar", style = MaterialTheme.typography.bodySmall, color = liquid.textSecondary)
+            }
+        }
         SettingsGroup(title = "Aparência e privacidade") {
             SettingsRow(
                 icon = Icons.Default.DarkMode,

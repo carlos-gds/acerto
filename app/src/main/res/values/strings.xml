@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">Acerto</string>
+    <string name="shortcut_receive_short">Receber</string>
+    <string name="shortcut_receive_long">Receber pagamento</string>
+    <string name="shortcut_purchase_short">Nova compra</string>
+    <string name="shortcut_purchase_long">Lançar compra no cartão</string>
+    <string name="shortcut_ai_short">Lançar com IA</string>
+    <string name="shortcut_ai_long">Lançar compra com IA</string>
+    <string name="widget_label">Falta receber</string>
+    <string name="widget_description">Quanto falta receber e de quantas pessoas</string>
 </resources>

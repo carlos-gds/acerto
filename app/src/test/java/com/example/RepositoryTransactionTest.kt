@@ -110,6 +110,29 @@ class RepositoryTransactionTest {
     }
 
     @Test
+    fun receber_quitaDaMaisAntigaEDeixaParcialNaProxima() = runBlocking {
+        val person = ana()
+        val id = repo.addCardPurchase("Fone", 300.0, person, 3, 2026, 1) // 3 x R$ 100
+        val applied = repo.receivePayment(person.id, 15000) // R$ 150
+        assertEquals(15000L, applied)
+        val items = db.installmentDao().getInstallmentListByExpenseId(id)
+        val first = items.filter { it.installmentNumber == 1 }
+        assertEquals(true, first.single().isPaid)
+        val second = items.filter { it.installmentNumber == 2 }
+        assertEquals(5000L, second.single { it.isPaid }.amount)
+        assertEquals(5000L, second.single { !it.isPaid }.amount)
+        assertEquals(false, items.single { it.installmentNumber == 3 }.isPaid)
+    }
+
+    @Test
+    fun receber_naoPassaDoTotalEmAberto() = runBlocking {
+        val person = ana()
+        val id = repo.addCardPurchase("Fone", 200.0, person, 2, 2026, 1)
+        assertEquals(20000L, repo.receivePayment(person.id, 99999))
+        assertEquals(true, db.installmentDao().getInstallmentListByExpenseId(id).all { it.isPaid })
+    }
+
+    @Test
     fun repositorioSemBanco_continuaFuncionando() = runBlocking {
         val semTx = FinanceRepository(db.personDao(), db.expenseDao(), db.installmentDao())
         val id = semTx.addCardPurchase("Livro", 100.0, ana(), 2, 2026, 1)

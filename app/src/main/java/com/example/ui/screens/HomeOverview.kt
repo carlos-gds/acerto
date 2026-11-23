@@ -32,6 +32,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import com.example.ui.theme.AcertoPalette
+import com.example.ui.components.noirHeaderBackground
+import com.example.ui.components.SplitMoney
+import com.example.ui.components.SheetTop
+import com.example.ui.components.PeekingCardStack
+import com.example.ui.components.NoirHeaderTile
+import com.example.ui.components.NoirRoundButton
+import com.example.ui.components.NoirPill
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Today
 import com.example.ui.components.acertoCard
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -71,6 +81,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -152,203 +165,362 @@ fun HomeOverview(
     recurring: com.example.util.Forecast.Recurring? = null,
     onSelectMonth: (Int, Int) -> Unit = { _, _ -> },
     /** Volta para o mês de hoje (aparece quando outro mês está aberto). */
-    onGoToCurrentMonth: () -> Unit = {}
+    onGoToCurrentMonth: () -> Unit = {},
+    /** Abre o fluxo "Receber" (escolher pessoa, digitar valor, deslizar para confirmar). */
+    onReceive: () -> Unit = {},
+    /** Abre a aba Cartão (toque nos cartões empilhados). */
+    onOpenCards: () -> Unit = {},
+    /** Quantas compras no cartão existem (cartões empilhados no cabeçalho). */
+    cardCount: Int = 0,
+    /** Foto de perfil: abre os Ajustes. */
+    onOpenProfile: () -> Unit = {},
+    /** Deslizar a linha da pessoa para a esquerda: marca o mês dela como pago. */
+    onMarkPersonPaid: (PersonMonthlyGroup) -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
     val totals = totalsOf(groups)
-    val prevYear = if (selectedMonth == 1) selectedYear - 1 else selectedYear
-    val prevMonth = if (selectedMonth == 1) 12 else selectedMonth - 1
-    val prevTotal = remember(allInstallments, prevYear, prevMonth) {
-        com.example.util.Forecast.monthTotal(allInstallments, prevYear, prevMonth)
-    }
     val forecast = remember(allInstallments, selectedYear, selectedMonth) {
         com.example.util.Forecast.nextMonths(allInstallments, selectedYear, selectedMonth, 6)
     }
+    var moreMenu by remember { mutableStateOf(false) }
 
-    // statusBarsPadding: o conteúdo começa abaixo da barra de status (relógio, bateria)
-    Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
-        // Cabeçalho: nome com o ponto vermelho da marca, busca e privacidade
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
-        ) {
-            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Bottom) {
-                Text("Acerto", style = MaterialTheme.typography.displaySmall, color = liquid.textPrimary)
-                Text(".", style = MaterialTheme.typography.displaySmall, color = brandColor())
-            }
-            RoundButton(
-                onClick = onSearchClick,
-                contentDescription = if (isSearchOpen) "Fechar pesquisa" else "Pesquisar",
-                modifier = Modifier.testTag("home_search_button")
+    // Cabeçalho escuro: ícones claros na barra de status
+    com.example.ui.components.StatusBarIcons(lightIcons = true)
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize().background(liquid.sheetSurface),
+        contentPadding = PaddingValues(bottom = 140.dp + com.example.ui.components.navBarsBottom())
+    ) {
+        // ---------- Cabeçalho escuro ----------
+        item(key = "noir_header") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .noirHeaderBackground()
+                    .statusBarsPadding()
+                    .padding(top = 8.dp, bottom = 34.dp)
             ) {
-                AnimatedContent(targetState = isSearchOpen, transitionSpec = { iconSwap(reduced) }, label = "search_icon") { open ->
-                    Icon(if (open) Icons.Default.Close else Icons.Default.Search, contentDescription = null, tint = liquid.textPrimary)
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            RoundButton(
-                onClick = onTogglePrivacy,
-                contentDescription = if (isPrivacyMode) "Mostrar valores" else "Ocultar valores",
-                modifier = Modifier.testTag("toggle_privacy_button")
-            ) {
-                AnimatedContent(targetState = isPrivacyMode, transitionSpec = { iconSwap(reduced) }, label = "eye_icon") { hidden ->
-                    Icon(if (hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null, tint = liquid.textPrimary)
+                PeekingCardStack(count = cardCount, onClick = onOpenCards, modifier = Modifier.padding(top = 128.dp))
+                Column(Modifier.fillMaxWidth()) {
+                    // Linha de cima: marca, mês e botões
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp)
+                    ) {
+                        com.example.ui.components.ProfileAvatar(size = 48.dp, onClick = onOpenProfile)
+                        Spacer(Modifier.weight(1f))
+                        NoirRoundButton(
+                            icon = if (isSearchOpen) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = if (isSearchOpen) "Fechar pesquisa" else "Pesquisar",
+                            onClick = onSearchClick,
+                            modifier = Modifier.testTag("home_search_button")
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        NoirRoundButton(
+                            icon = if (isPrivacyMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (isPrivacyMode) "Mostrar valores" else "Ocultar valores",
+                            onClick = onTogglePrivacy,
+                            modifier = Modifier.testTag("toggle_privacy_button")
+                        )
+                    }
+
+                    // Mês (setas discretas)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 8.dp, top = 18.dp)
+                    ) {
+                        NoirMonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Mês anterior", onPreviousMonth, Modifier.testTag("month_previous_button"))
+                        AnimatedContent(
+                            targetState = selectedYear to selectedMonth,
+                            transitionSpec = { textSwapTransform(reduced) },
+                            label = "noir_month"
+                        ) { (y, m) ->
+                            Text(
+                                "${CurrencyFormatter.getMonthName(m)} $y",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = AcertoPalette.TextOnHeaderMuted,
+                                modifier = Modifier.testTag("month_label")
+                            )
+                        }
+                        NoirMonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Próximo mês", onNextMonth, Modifier.testTag("month_next_button"))
+                        if (showingPendingMonth) {
+                            Text(
+                                "pendências",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AcertoPalette.Yellow,
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
+                    }
+                    if (!isCurrentMonth) {
+                        Row(Modifier.padding(start = 20.dp)) {
+                            NoirChip(text = "Ir para o mês atual", onClick = onGoToCurrentMonth, modifier = Modifier.testTag("go_to_current_month"))
+                        }
+                    }
+
+                    // Valor principal
+                    Column(Modifier.padding(start = 20.dp, end = 100.dp, top = 6.dp)) {
+                        Text(
+                            if (totals.people > 0 && totals.pending <= 0.001) "Tudo recebido em ${monthLower(selectedMonth)}" else "Falta receber",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AcertoPalette.TextOnHeaderMuted
+                        )
+                        SplitMoney(
+                            text = CurrencyFormatter.format(if (totals.pending > 0.001) totals.pending else totals.total, isPrivacyMode),
+                            big = MaterialTheme.typography.displaySmall.copy(fontSize = 46.sp, lineHeight = 52.sp, letterSpacing = (-1).sp),
+                            color = AcertoPalette.TextOnHeader,
+                            centsColor = AcertoPalette.TextOnHeaderMuted,
+                            modifier = Modifier.testTag("home_pending_total")
+                        )
+                    }
+
+                    // Pílulas de ação
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 20.dp, top = 14.dp)
+                    ) {
+                        NoirPill(
+                            text = "Receber",
+                            onClick = onReceive,
+                            light = true,
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            modifier = Modifier.testTag("home_receive_button")
+                        )
+                        NoirPill(
+                            text = "Compra",
+                            onClick = onAddCardPurchase,
+                            light = false,
+                            icon = Icons.Default.Add,
+                            modifier = Modifier.testTag("home_new_purchase_button")
+                        )
+                        Box {
+                            NoirRoundButton(
+                                icon = Icons.Default.MoreHoriz,
+                                contentDescription = "Mais ações",
+                                onClick = { moreMenu = true },
+                                modifier = Modifier.testTag("home_more_button")
+                            )
+                            DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Dividir conta") },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = null) },
+                                    onClick = { moreMenu = false; onAddSharedBill() },
+                                    modifier = Modifier.testTag("home_split_button")
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Lançar com IA") },
+                                    leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+                                    onClick = { moreMenu = false; onAiEntry() },
+                                    modifier = Modifier.testTag("home_ai_button")
+                                )
+                            }
+                        }
+                    }
+
+                    // Bloco "Recebido" com quem deve
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.example.ui.theme.LocalLiquidGlassColors provides com.example.ui.theme.LiquidDarkTokens
+                    ) { NoirHeaderTile(
+                        label = "Recebido de ${peopleLabel(totals.people)}",
+                        value = "${CurrencyFormatter.format(totals.total - totals.pending, isPrivacyMode)} de ${CurrencyFormatter.format(totals.total, isPrivacyMode)}",
+                        people = groups.map { Triple(it.personName, it.colorHex, it.avatar) },
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 26.dp).testTag("monthly_summary_card")
+                    ) }
                 }
             }
         }
 
-        if (isSearchOpen) searchBar()
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 140.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            item(key = "month") {
-                MonthRow(
-                    year = selectedYear,
-                    month = selectedMonth,
-                    isCurrentMonth = isCurrentMonth,
-                    showingPendingMonth = showingPendingMonth,
-                    onPrevious = onPreviousMonth,
-                    onNext = onNextMonth,
-                    onGoToCurrent = onGoToCurrentMonth
-                )
-            }
-
-            item(key = "hero") {
-                HeroCard(
-                    totals = totals,
-                    groups = groups,
-                    month = selectedMonth,
-                    prevMonth = prevMonth,
-                    prevTotal = prevTotal,
-                    isPrivacyMode = isPrivacyMode,
-                    filtered = hasSearchQuery
-                )
-            }
-
-            item(key = "actions") {
-                Column(
-                    modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+        // ---------- Folha branca ----------
+        item(key = "sheet_top") {
+            SheetTop(sheetColor = liquid.sheetSurface) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp)
                 ) {
-                    BigButton(
-                        text = "Nova compra",
-                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                        primary = true,
-                        onClick = onAddCardPurchase,
-                        modifier = Modifier.fillMaxWidth().testTag("home_new_purchase_button")
-                    )
-                    val split: @Composable (Modifier) -> Unit = { m ->
-                        BigButton(
-                            text = "Dividir conta",
-                            icon = { Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = null) },
-                            primary = false,
-                            onClick = onAddSharedBill,
-                            modifier = m.testTag("home_split_button")
-                        )
-                    }
-                    val ai: @Composable (Modifier) -> Unit = { m ->
-                        BigButton(
-                            text = "Com IA",
-                            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-                            primary = false,
-                            onClick = onAiEntry,
-                            modifier = m.testTag("home_ai_button")
-                        )
-                    }
-                    if (isLargeFont()) {
-                        split(Modifier.fillMaxWidth())
-                        ai(Modifier.fillMaxWidth())
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            split(Modifier.weight(1f))
-                            ai(Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
-            if (groups.isNotEmpty()) {
-                item(key = "people_header") {
-                    SectionHeader(
-                        title = "Quem te deve",
-                        trailing = if (groups.size == 1) "1 pessoa" else "${groups.size} pessoas"
-                    )
-                }
-                item(key = "people_list") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .acertoCard(ListShape)
-                    ) {
-                        val sorted = groups.sortedWith(
-                            compareBy<PersonMonthlyGroup> { it.pendingAmount <= 0.001 }.thenByDescending { it.pendingAmount }
-                        )
-                        sorted.forEachIndexed { index, group ->
-                            PersonRow(
-                                group = group,
-                                isPrivacyMode = isPrivacyMode,
-                                showDivider = index > 0,
-                                onClick = { onOpenPerson(group.personId) }
-                            )
-                        }
-                    }
-                }
-            } else if (hasSearchQuery) {
-                item(key = "no_results") {
+                    SheetIconButton(Icons.Default.FilterList, "Filtrar", onSearchClick)
                     Text(
-                        "Nada encontrado para essa pesquisa.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = liquid.textSecondary,
-                        modifier = Modifier.padding(top = 20.dp, start = 4.dp)
+                        "Quem te deve",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = liquid.textPrimary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.weight(1f)
                     )
+                    SheetIconButton(Icons.Default.Search, "Pesquisar", onSearchClick)
+                }
+                if (isSearchOpen) searchBar()
+            }
+        }
+
+        if (groups.isNotEmpty()) {
+            val sorted = groups.sortedWith(
+                compareBy<PersonMonthlyGroup> { it.pendingAmount <= 0.001 }.thenByDescending { it.pendingAmount }
+            )
+            items(sorted, key = { "person_${it.personId}" }) { group ->
+                SwipeToPayRow(group = group, onPaid = { onMarkPersonPaid(group) }) {
+    NoirPersonRow(group = group, isPrivacyMode = isPrivacyMode, onClick = { onOpenPerson(group.personId) })
                 }
             }
+        } else {
+            item(key = "empty") {
+                Text(
+                    if (hasSearchQuery) "Nada encontrado para essa pesquisa."
+                    else "Nenhuma parcela em ${monthLower(selectedMonth)}. Toque em Nova compra para lançar.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = liquid.textSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
+                )
+            }
+        }
 
-            if (!hasSearchQuery && forecast.any { it.amount > 0.0 }) {
-                item(key = "forecast_header") {
-                    val sum = forecast.sumOf { it.amount }
-                    val last = forecast.last()
+        // Destaques automáticos (sempre a partir do mês de hoje)
+        if (!hasSearchQuery) {
+            item(key = "insights") {
+                val today = remember { java.util.Calendar.getInstance() }
+                val insights = remember(allInstallments, isPrivacyMode) {
+                    com.example.util.Insights.build(
+                        allInstallments,
+                        today.get(java.util.Calendar.YEAR),
+                        today.get(java.util.Calendar.MONTH) + 1,
+                        isPrivacyMode
+                    )
+                }
+                if (insights.isNotEmpty()) InsightsRow(insights = insights, onOpenPerson = onOpenPerson)
+            }
+        }
+
+        if (!hasSearchQuery && forecast.any { it.amount > 0.0 }) {
+            item(key = "forecast_header") {
+                val sum = forecast.sumOf { it.amount }
+                val last = forecast.last()
+                Box(Modifier.padding(horizontal = 16.dp)) {
                     SectionHeader(
                         title = "Próximos meses",
                         trailing = "${CurrencyFormatter.format(sum, isPrivacyMode)} até ${CurrencyFormatter.getMonthShortName(last.month).lowercase()}"
                     )
                 }
-                item(key = "forecast_chart") {
-                    ForecastChart(
-                        months = forecast,
-                        isPrivacyMode = isPrivacyMode,
-                        onSelect = { y, m -> onSelectMonth(y, m) }
-                    )
+            }
+            item(key = "forecast_chart") {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    ForecastChart(months = forecast, isPrivacyMode = isPrivacyMode, onSelect = { y, m -> onSelectMonth(y, m) })
                 }
             }
+        }
 
-            if (recurring != null && !hasSearchQuery) {
-                item(key = "recurring_pill") {
-                    RecurringPill(recurring = recurring, isPrivacyMode = isPrivacyMode)
-                }
+        if (recurring != null && !hasSearchQuery) {
+            item(key = "recurring_pill") {
+                Box(Modifier.padding(horizontal = 16.dp)) { RecurringPill(recurring = recurring, isPrivacyMode = isPrivacyMode) }
             }
+        }
 
-            if (myShareItems.isNotEmpty()) {
-                item(key = "my_share_header") {
-                    SectionHeader(title = "Sua parte nas contas", trailing = null)
-                }
-                items(myShareItems, key = { "my_share_${it.id}" }) { item ->
-                    MyShareItemCard(
-                        item = item,
-                        isPrivacyMode = isPrivacyMode,
-                        onEdit = onEditItem,
-                        onDelete = onDeleteItem,
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
-                }
+        if (myShareItems.isNotEmpty()) {
+            item(key = "my_share_header") {
+                Box(Modifier.padding(horizontal = 16.dp)) { SectionHeader(title = "Sua parte nas contas", trailing = null) }
             }
+            items(myShareItems, key = { "my_share_${it.id}" }) { item ->
+                MyShareItemCard(
+                    item = item,
+                    isPrivacyMode = isPrivacyMode,
+                    onEdit = onEditItem,
+                    onDelete = onDeleteItem,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)
+                )
+            }
+        }
+    }
+}
+
+/** Seta do mês sobre o cabeçalho escuro. */
+@Composable
+private fun NoirMonthArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Icon(icon, contentDescription = label, tint = AcertoPalette.TextOnHeaderMuted, modifier = Modifier.size(22.dp)) }
+}
+
+/** Chip escuro do cabeçalho. */
+@Composable
+private fun NoirChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .heightIn(min = 32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(AcertoPalette.PillDark)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Icon(Icons.Default.Today, contentDescription = null, tint = AcertoPalette.TextOnHeader, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = AcertoPalette.TextOnHeader)
+    }
+}
+
+/** Botão redondo cinza da folha branca (filtro, busca). */
+@Composable
+private fun SheetIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    val liquid = LocalLiquidGlassColors.current
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(liquid.cardSurface)
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Icon(icon, contentDescription = label, tint = liquid.textSecondary, modifier = Modifier.size(22.dp)) }
+}
+
+/** Linha da folha branca: avatar com bolinha de status, nome e valor (como "Transactions"). */
+@Composable
+private fun NoirPersonRow(group: PersonMonthlyGroup, isPrivacyMode: Boolean, onClick: () -> Unit) {
+    val liquid = LocalLiquidGlassColors.current
+    val paid = group.pendingAmount <= 0.001
+    val large = isLargeFont()
+    val subtitle = if (group.items.size == 1) {
+        val it = group.items.first()
+        "${it.expenseTitle} · ${it.installmentNumber} de ${it.totalInstallments}"
+    } else "${group.items.size} itens neste mês"
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 68.dp)
+            .clickable(role = Role.Button, onClickLabel = "Abrir ${group.personName}", onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .testTag("person_row_${group.personId}")
+    ) {
+        Box {
+            PersonAvatarBadge(name = group.personName, colorHex = group.colorHex, avatar = group.avatar, size = 46.dp)
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(liquid.sheetSurface)
+                    .padding(2.5.dp)
+                    .clip(CircleShape)
+                    .background(if (paid) AcertoPalette.Mint else AcertoPalette.Yellow)
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(group.personName, style = MaterialTheme.typography.bodyLarge, color = liquid.textPrimary, maxLines = if (large) 2 else 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = liquid.textSecondary, maxLines = if (large) 2 else 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                CurrencyFormatter.format(if (paid) group.totalAmount else group.pendingAmount, isPrivacyMode),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (paid) liquid.accentPaid else liquid.textPrimary
+            )
+            Text(if (paid) "Pago" else "Pendente", style = MaterialTheme.typography.labelMedium, color = if (paid) liquid.accentPaid else liquid.textSecondary)
         }
     }
 }
@@ -356,7 +528,7 @@ fun HomeOverview(
 @Composable
 private fun brandColor(): Color {
     val liquid = LocalLiquidGlassColors.current
-    return if (liquid.isDark) Color(0xFFF0354B) else liquid.pillPrimaryBg
+    return liquid.textPrimary
 }
 
 private fun iconSwap(reduced: Boolean) =
@@ -832,6 +1004,8 @@ fun PersonMonthDetail(
     onEditItem: (InstallmentItem) -> Unit,
     onDeleteItem: (InstallmentItem) -> Unit,
     onPartialPayment: (InstallmentItem, Double) -> Unit = { _, _ -> },
+    /** Abre o fluxo Receber já com esta pessoa. */
+    onReceive: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** Quanto a pessoa ainda deve no total e quando quita (todas as parcelas futuras). */
     payoff: com.example.util.Forecast.Payoff? = null
@@ -900,7 +1074,7 @@ fun PersonMonthDetail(
 
     LazyColumn(
         modifier = modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp)
+        contentPadding = PaddingValues(top = 8.dp, bottom = 140.dp + com.example.ui.components.navBarsBottom())
     ) {
         item(key = "back") {
             val interaction = remember { MutableInteractionSource() }
@@ -975,12 +1149,21 @@ fun PersonMonthDetail(
             }
         }
         item(key = "charge") {
+            if (group.pendingAmount > 0.001) {
+                BigButton(
+                    text = "Receber de $firstName",
+                    icon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
+                    primary = true,
+                    onClick = onReceive,
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag("person_receive_button")
+                )
+            }
             BigButton(
                 text = "Cobrar $firstName",
                 icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
-                primary = true,
+                primary = group.pendingAmount <= 0.001,
                 onClick = { if (isPrivacyMode) confirmPrivacyShare = true else share() },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag("person_charge_button")
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).testTag("person_charge_button")
             )
             Text(
                 "Vai uma imagem com as parcelas de ${monthLower(selectedMonth)} e o total, e uma mensagem com a sua chave PIX, se estiver salva em Ajustes.",
@@ -1178,5 +1361,94 @@ fun GoToCurrentMonthChip(onClick: () -> Unit, modifier: Modifier = Modifier) {
         Icon(Icons.Default.Today, contentDescription = null, tint = liquid.textPrimary, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
         Text("Ir para o mês atual", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = liquid.textPrimary)
+    }
+}
+
+/** Linha rolável de destaques: cartõezinhos com a cor do tipo de aviso. */
+@Composable
+private fun InsightsRow(
+    insights: List<com.example.util.Insights.Insight>,
+    onOpenPerson: (Long) -> Unit
+) {
+    val liquid = LocalLiquidGlassColors.current
+    Column(Modifier.padding(top = 8.dp).testTag("home_insights")) {
+        Box(Modifier.padding(horizontal = 16.dp)) { SectionHeader(title = "Destaques", trailing = null) }
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(insights, key = { it.kind.name }) { insight ->
+                val dot = when (insight.kind) {
+                    com.example.util.Insights.Kind.LATE -> com.example.ui.theme.AcertoPalette.Yellow
+                    com.example.util.Insights.Kind.TOP -> com.example.ui.theme.AcertoPalette.Cards[3]
+                    com.example.util.Insights.Kind.NEXT_MONTH -> com.example.ui.theme.AcertoPalette.Blue
+                    com.example.util.Insights.Kind.RECEIVED -> com.example.ui.theme.AcertoPalette.Mint
+                }
+                val id = insight.personId
+                Column(
+                    Modifier
+                        .width(220.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(liquid.cardSurface)
+                        .then(if (id != null) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpenPerson(id) } else Modifier)
+                        .padding(16.dp)
+                ) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+                    Spacer(Modifier.height(10.dp))
+                    Text(insight.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = liquid.textPrimary, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(4.dp))
+                    Text(insight.detail, style = MaterialTheme.typography.bodySmall, color = liquid.textSecondary, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Deslizar para a esquerda revela "Pago" em verde-água; soltando depois do
+ * limite, o mês da pessoa é marcado como pago e a linha volta ao lugar.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToPayRow(group: PersonMonthlyGroup, onPaid: () -> Unit, content: @Composable () -> Unit) {
+    val pending = group.pendingAmount > 0.001
+    if (!pending) { content(); return }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { v ->
+            if (v == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                onPaid()
+            }
+            false // sempre volta: a linha continua, agora como paga
+        },
+        positionalThreshold = { it * 0.4f }
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = false,
+        modifier = Modifier.semantics {
+            customActions = listOf(
+                androidx.compose.ui.semantics.CustomAccessibilityAction("Marcar ${group.personName} como pago") { onPaid(); true }
+            )
+        },
+        backgroundContent = {
+            val reached = state.targetValue == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart
+            val bg by androidx.compose.animation.animateColorAsState(
+                if (reached) AcertoPalette.Mint else AcertoPalette.Mint.copy(alpha = 0.45f), label = "swipe_bg"
+            )
+            Box(
+                Modifier.fillMaxSize().background(bg).padding(horizontal = 24.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF0B2A0C), modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Pago", style = MaterialTheme.typography.titleSmall, color = Color(0xFF0B2A0C))
+                }
+            }
+        }
+    ) {
+        Box(Modifier.background(LocalLiquidGlassColors.current.sheetSurface)) { content() }
     }
 }

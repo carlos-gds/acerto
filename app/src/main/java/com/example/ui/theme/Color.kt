@@ -124,98 +124,117 @@ data class LiquidGlassColors(
 )
 
 // ==========================================
-// PALETA ACERTO (2026-11): Obsidian + Ice Grey + Racing Red como assinatura.
-// Seguindo o Apple HIG e o Taste Skill: superfícies sólidas, sem vidro,
-// sem degradê e sem sombra em repouso. O vermelho é só marca (botão
-// principal, aba ativa, ponto do nome); pendente é âmbar e pago é verde,
-// para o vermelho nunca parecer dívida.
+// VISUAL ACERTO "NOIR" (2026-11-22)
+// Cabeçalho escuro com brilho azul-esverdeado, folhas brancas por cima,
+// cartões amarelo / verde-água / azul e verde-limão no sucesso.
+// Cores medidas quadro a quadro na referência de vídeo escolhida pelo usuário.
 // ==========================================
-val AcertoObsidian = Color(0xFF111217)
-/** Fundo do tema escuro: quase preto, bom em telas AMOLED. */
-val AcertoNight = Color(0xFF0C0D10)
-val AcertoIce = Color(0xFFEEF1F4)
-val AcertoIceFill = Color(0xFFE3E7EC)
-/** Vermelho de marca no claro: escurecido para texto branco passar AA (5,2:1). */
-val AcertoRedLight = Color(0xFFC8152B)
-/** Vermelho de marca no escuro: botão com texto branco ainda AA (4,7:1). */
-val AcertoRedDark = Color(0xFFE0243A)
-/** Vermelho para texto/ícone sobre o fundo escuro (4,8:1). */
-val AcertoRedOnDark = Color(0xFFF0354B)
-val AcertoDarkSurface = Color(0xFF15161B)
-val AcertoDarkFill = Color(0xFF212228)
+object AcertoPalette {
+    /** Fundo do cabeçalho escuro (sempre escuro, nos dois temas). */
+    val Header = Color(0xFF1C2021)
+    /** Brilho no canto superior direito do cabeçalho. */
+    val HeaderGlow = Color(0xFF2E5560)
+    /** Bloco cinza sobre o cabeçalho ("Recebido"). */
+    val HeaderTile = Color(0xFF2E3133)
+    /** Pílula clara sobre o escuro (ação principal do cabeçalho). */
+    val PillLight = Color(0xFFEDEDED)
+    /** Pílula escura sobre o escuro (ação secundária). */
+    val PillDark = Color(0xFF2C3134)
+    val TextOnHeader = Color(0xFFF5F5F5)
+    val TextOnHeaderMuted = Color(0xFF8E9396)
+    val Yellow = Color(0xFFFBF049)
+    val Mint = Color(0xFF32FFC6)
+    val Blue = Color(0xFF24A9EE)
+    /** Tela de sucesso. */
+    val Lime = Color(0xFF2BF831)
+    val OnLime = Color(0xFF0B2A0C)
+    /** Cores dos cartões empilhados, nessa ordem. */
+    val Cards = listOf(Yellow, Mint, Blue, Color(0xFFFF9F43), Color(0xFFB794F6), Color(0xFFFF6B9A))
+    /** Barra inferior flutuante. */
+    val NavBar = Color(0xFF26292B)
+    val NavSelected = Color(0xFFF2F2F2)
+}
+
+private val Ink = Color(0xFF16181A)
+private val InkMuted = Color(0xFF63666B)
+private val Paper = Color(0xFFFFFFFF)
+private val PaperFill = Color(0xFFF4F4F5)
+private val PaperFill2 = Color(0xFFEAEAEC)
+private val NightSurface = Color(0xFF26292C)
+private val NightFill = Color(0xFF303437)
 
 private fun solid(color: Color) = Brush.verticalGradient(listOf(color, color))
 private val NoBrush = Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
 
 val LiquidLightTokens = LiquidGlassColors(
     isDark = false,
-    background = AcertoIce,
-    backgroundGradient = solid(AcertoIce),
-    headerSurface = Color.White,
-    cardSurface = Color.White,
-    cardSurfaceVariant = AcertoIceFill,
-    cardBorder = Color(0x1A111217),
-    cardBorderSubtle = Color(0x12111217),
-    textPrimary = AcertoObsidian,
-    textSecondary = Color(0xFF565C66),
-    textMuted = Color(0xFF5E6470),
-    pillPrimaryBg = AcertoRedLight,
+    background = Paper,
+    backgroundGradient = solid(Paper),
+    headerSurface = Paper,
+    cardSurface = PaperFill,
+    cardSurfaceVariant = PaperFill2,
+    cardBorder = Color(0x14000000),
+    cardBorderSubtle = Color(0x0F000000),
+    textPrimary = Ink,
+    textSecondary = InkMuted,
+    textMuted = Color(0xFF5F6267),
+    pillPrimaryBg = Ink,
     pillPrimaryText = Color.White,
-    pillSecondaryBg = AcertoIceFill,
-    pillSecondaryText = AcertoObsidian,
-    circleButtonBg = AcertoIceFill,
+    pillSecondaryBg = PaperFill,
+    pillSecondaryText = Ink,
+    circleButtonBg = PaperFill,
     circleButtonBorder = Color(0x00000000),
-    accentPaid = Color(0xFF1D7A45),
-    accentPaidContainer = Color(0xFFDDF1E5),
-    accentPending = Color(0xFF9A5B00),
-    accentPendingContainer = Color(0xFFFBEBD0),
-    eyeActive = Color(0xFF565C66),
-    accent = AcertoObsidian,
-    accentGradient = solid(AcertoRedLight),
-    heroGradient = solid(Color.White),
-    heroText = AcertoObsidian,
-    specularBorder = solid(Color(0x12111217)),
+    accentPaid = Color(0xFF15803D),
+    accentPaidContainer = Color(0xFFDCFCE7),
+    accentPending = Color(0xFFB45309),
+    accentPendingContainer = Color(0xFFFEF3C7),
+    eyeActive = InkMuted,
+    accent = Ink,
+    accentGradient = solid(Ink),
+    heroGradient = solid(PaperFill),
+    heroText = Ink,
+    specularBorder = solid(Color(0x0F000000)),
     glassHighlight = NoBrush,
-    dangerGradient = solid(AcertoRedLight),
+    dangerGradient = solid(Color(0xFFDC2626)),
     bottomFade = NoBrush,
-    sheetSurface = Color.White,
-    scrim = Color(0x66111217),
+    sheetSurface = Paper,
+    scrim = Color(0x66000000),
     shadowAmbient = Color.Transparent,
     shadowSpot = Color.Transparent
 )
 
 val LiquidDarkTokens = LiquidGlassColors(
     isDark = true,
-    background = AcertoNight,
-    backgroundGradient = solid(AcertoNight),
-    headerSurface = AcertoDarkSurface,
-    cardSurface = AcertoDarkSurface,
-    cardSurfaceVariant = AcertoDarkFill,
-    cardBorder = Color(0x1FEEF1F4),
-    cardBorderSubtle = Color(0x17EEF1F4),
-    textPrimary = AcertoIce,
-    textSecondary = Color(0xFF9BA1AB),
-    textMuted = Color(0xFF8B919B),
-    pillPrimaryBg = AcertoRedDark,
-    pillPrimaryText = Color.White,
-    pillSecondaryBg = AcertoDarkFill,
-    pillSecondaryText = AcertoIce,
-    circleButtonBg = AcertoDarkFill,
+    background = AcertoPalette.Header,
+    backgroundGradient = solid(AcertoPalette.Header),
+    headerSurface = NightSurface,
+    cardSurface = NightSurface,
+    cardSurfaceVariant = NightFill,
+    cardBorder = Color(0x1AFFFFFF),
+    cardBorderSubtle = Color(0x12FFFFFF),
+    textPrimary = Color(0xFFF2F2F2),
+    textSecondary = Color(0xFF9A9EA1),
+    textMuted = Color(0xFF9A9EA2),
+    pillPrimaryBg = AcertoPalette.PillLight,
+    pillPrimaryText = Ink,
+    pillSecondaryBg = NightFill,
+    pillSecondaryText = Color(0xFFF2F2F2),
+    circleButtonBg = NightFill,
     circleButtonBorder = Color(0x00000000),
-    accentPaid = Color(0xFF4CC985),
-    accentPaidContainer = Color(0x264CC985),
-    accentPending = Color(0xFFF2B13C),
-    accentPendingContainer = Color(0x26F2B13C),
-    eyeActive = Color(0xFF9BA1AB),
-    accent = AcertoIce,
-    accentGradient = solid(AcertoRedDark),
-    heroGradient = solid(AcertoDarkSurface),
-    heroText = AcertoIce,
-    specularBorder = solid(Color(0x12EEF1F4)),
+    accentPaid = Color(0xFF4ADE80),
+    accentPaidContainer = Color(0x264ADE80),
+    accentPending = Color(0xFFFBBF24),
+    accentPendingContainer = Color(0x26FBBF24),
+    eyeActive = Color(0xFF9A9EA1),
+    accent = Color(0xFFF2F2F2),
+    accentGradient = solid(AcertoPalette.PillLight),
+    heroGradient = solid(NightSurface),
+    heroText = Color(0xFFF2F2F2),
+    specularBorder = solid(Color(0x12FFFFFF)),
     glassHighlight = NoBrush,
-    dangerGradient = solid(AcertoRedDark),
+    dangerGradient = solid(Color(0xFFEF4444)),
     bottomFade = NoBrush,
-    sheetSurface = AcertoDarkSurface,
+    sheetSurface = NightSurface,
     scrim = Color(0x99000000),
     shadowAmbient = Color.Transparent,
     shadowSpot = Color.Transparent

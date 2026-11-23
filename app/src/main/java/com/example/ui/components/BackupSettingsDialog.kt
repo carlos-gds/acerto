@@ -63,6 +63,7 @@ fun BackupSettingsDialog(
     uiState: BackupUiState,
     onDismiss: () -> Unit,
     onExportClick: () -> Unit,
+    onExportCsvClick: () -> Unit = {},
     onImportClick: () -> Unit,
     onConfirmRestore: () -> Unit,
     onDismissConfirmation: () -> Unit,
@@ -389,6 +390,20 @@ fun BackupSettingsDialog(
                             Icon(imageVector = Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Salvar Arquivo de Backup", fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(
+                            onClick = onExportCsvClick,
+                            enabled = uiState !is BackupUiState.Exporting && uiState !is BackupUiState.Importing,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                .height(46.dp)
+                                .testTag("btn_export_csv"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp), tint = liquid.textPrimary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Exportar planilha (.csv)", color = liquid.textPrimary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

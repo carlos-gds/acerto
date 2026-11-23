@@ -54,6 +54,19 @@ class MainActivity : ComponentActivity() {
   /** App bloqueado: mostra só a tela de desbloqueio, nunca o conteúdo. */
   private var locked by mutableStateOf(false)
   private var backgroundAt = 0L
+  /** Ação pedida por um atalho do ícone ou pelo widget (Receber, Nova compra, IA). */
+  private var launchAction by mutableStateOf<String?>(null)
+
+  private fun takeAction(intent: android.content.Intent?) {
+    val action = intent?.action
+    if (action != null && action in com.example.util.AppActions.all) launchAction = action
+  }
+
+  override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    takeAction(intent)
+  }
 
   // Android 7–9: tela de senha do próprio sistema
   private val credentialLauncher =
@@ -111,6 +124,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     locked = lockWanted()
+    if (savedInstanceState == null) takeAction(intent)
     // Lembrete mensal: garante o alarme agendado (ex.: depois de atualizar o app)
     if (MonthlyReminder.isEnabled(this)) MonthlyReminder.schedule(this)
     enableEdgeToEdge()
@@ -147,6 +161,8 @@ class MainActivity : ComponentActivity() {
           SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
         }
         enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
+        // Sem faixa translúcida do sistema: cada tela pinta até a borda de baixo
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         onDispose {}
       }
 
@@ -159,7 +175,11 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) { unlock() }
             LockScreen(onUnlock = { unlock() })
           } else {
-            HomeScreen(viewModel = viewModel)
+            HomeScreen(
+              viewModel = viewModel,
+              launchAction = launchAction,
+              onLaunchActionHandled = { launchAction = null }
+            )
           }
         }
       }

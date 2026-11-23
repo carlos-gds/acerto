@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="receive" android:enabled="true" android:icon="@drawable/ic_shortcut_receive"
+        android:shortcutShortLabel="@string/shortcut_receive_short" android:shortcutLongLabel="@string/shortcut_receive_long">
+        <intent android:action="com.example.acerto.RECEIVE" android:targetPackage="com.aistudio.dividicard.xfkql" android:targetClass="com.example.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="purchase" android:enabled="true" android:icon="@drawable/ic_shortcut_purchase"
+        android:shortcutShortLabel="@string/shortcut_purchase_short" android:shortcutLongLabel="@string/shortcut_purchase_long">
+        <intent android:action="com.example.acerto.NEW_PURCHASE" android:targetPackage="com.aistudio.dividicard.xfkql" android:targetClass="com.example.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="ai" android:enabled="true" android:icon="@drawable/ic_shortcut_ai"
+        android:shortcutShortLabel="@string/shortcut_ai_short" android:shortcutLongLabel="@string/shortcut_ai_long">
+        <intent android:action="com.example.acerto.AI" android:targetPackage="com.aistudio.dividicard.xfkql" android:targetClass="com.example.MainActivity" />
+    </shortcut>
+</shortcuts>
