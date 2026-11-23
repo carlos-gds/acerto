@@ -62,7 +62,7 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 
 | | Recurso | Como funciona |
 |:-:|---|---|
-| 💳 | **Compras no cartão** | Em 3 etapas: quem comprou → valor e parcelas → o que foi. Na aba Cartão, cada pessoa vira um cartão colorido com quanto falta e as compras dela. |
+| 💳 | **Compras no cartão** | Em 3 etapas: quem comprou → valor e parcelas → o que foi. Na aba Cartão, cada pessoa vira um cartão colorido com quanto deve no mês, quanto falta no total, as compras dela e botões para nova compra, receber e cobrar. |
 | 🧾 | **Contas divididas** | Valor → com quem (você incluído) → nome. Divisão igual ou personalizada, com aviso de quanto falta para fechar o total. Conta fixa repete por 12 meses. |
 | 🔢 | **Teclado-calculadora** | Vírgula automática como nos apps de banco (1, 2, 3 → R$ 1,23), tecla `00` e contas como `143,00 × 2`. |
 | 👉 | **Deslizar para confirmar** | Receber e salvar terminam com um deslize para a direita e uma tela verde que fecha sozinha. |
@@ -90,7 +90,7 @@ Compras parceladas no seu cartão para outras pessoas, contas divididas e cobran
 
 ### 🖤 Visual
 
-Cabeçalho escuro com um brilho azul-esverdeado, folha branca que sobe por cima com o conteúdo, cartões coloridos e pílulas arredondadas. A barra de baixo tem **3 abas (Pessoas, Início e Cartão)**, troca de aba **arrastando para o lado** e some ao rolar. Atrás dela o conteúdo some num fade na cor de cada tela.
+Cabeçalho escuro com um brilho azul-esverdeado, folha branca que sobe por cima com o conteúdo, cartões coloridos e pílulas arredondadas. Na Início, os cartões de quem mais deve ficam escondidos no canto direito, só com uma faixa lisa de cada cor aparecendo. A barra de baixo tem **3 abas (Pessoas, Início e Cartão)**, troca de aba **arrastando para o lado** e some ao rolar. Atrás dela o conteúdo some num fade na cor de cada tela.
 
 Segue o **Apple HIG** (toque mínimo de 44 pt, fonte grande do sistema respeitada, contraste AA) e funciona no tema claro e no escuro.
 
@@ -118,6 +118,19 @@ Valores pendentes em âmbar e pagos em verde, sempre com texto junto (nunca só 
 
 Molas e curvas inspiradas no [transitions.dev](https://transitions.dev): entrar em 250 ms, sair em 150 ms, curva *smooth-out*.
 
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/inicio_claro.png" width="180" alt="Início com os cartões no canto" /><br/><sub><b>1.</b> Cartões lisos no canto</sub></td>
+    <td align="center"><img src="docs/screenshots/travessia_1.png" width="180" alt="Cartões atravessando a tela juntos" /><br/><sub><b>2.</b> Atravessam juntos com o dedo</sub></td>
+    <td align="center"><img src="docs/screenshots/travessia_2.png" width="180" alt="Cartões abrindo um depois do outro" /><br/><sub><b>3.</b> Abrem um depois do outro</sub></td>
+    <td align="center"><img src="docs/screenshots/cartao.png" width="180" alt="Aba Cartão" /><br/><sub><b>4.</b> Viram a lista do Cartão</sub></td>
+  </tr>
+</table>
+</div>
+
+- 🃏 Da Início para o Cartão, os 3 cartões em destaque saem do canto e atravessam a tela juntos, acompanhando o dedo (ou a mola, ao tocar na barra). O conteúdo aparece no caminho e, no fim, eles abrem em lista um depois do outro, 40 ms de diferença. Soltou antes da metade? Eles voltam para o canto.
+- 👥 Indo para Pessoas, as fotos saem juntas da Início e se espalham pela grade
 - 📄 Folha branca que sobe com mola e o fundo que recua e escurece
 - ➡️ Etapas que deslizam para o lado, na direção do avanço
 - ⌨️ Pílula escura que segue o dedo de tecla em tecla
@@ -252,6 +265,7 @@ O `.env` está no `.gitignore`. A chave é enviada no cabeçalho `x-goog-api-key
 - [x] 🪜 Nova compra e Dividir conta em etapas, com teclado-calculadora
 - [x] 👥 Pessoas com perfil e histórico; Cartão separado por pessoa
 - [x] 👉 Trocar de aba arrastando e deslizar para confirmar
+- [x] 🃏 Cartões que atravessam da Início para o Cartão e abrem em sequência
 - [ ] 🤖 Entrada com IA via Firebase AI (sem chave no APK)
 - [ ] 🔑 Chave de assinatura própria para distribuição
 - [ ] ✏️ Editar lançamentos também em etapas
