@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.dividicard.xfkql"
     minSdk = 24
     targetSdk = 36
-    versionCode = 13
-    versionName = "1.6"
+    versionCode = 20
+    versionName = "1.13"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

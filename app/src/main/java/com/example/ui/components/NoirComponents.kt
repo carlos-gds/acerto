@@ -36,6 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -80,18 +83,34 @@ fun StatusBarIcons(lightIcons: Boolean, lightNavIcons: Boolean? = null) {
     }
 }
 
-/** Fundo do cabeçalho: grafite com um brilho azul-esverdeado no canto direito. */
-fun Modifier.noirHeaderBackground(): Modifier = this
-    .background(AcertoPalette.Header)
-    .drawBehind {
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AcertoPalette.HeaderGlow.copy(alpha = 0.85f), Color.Transparent),
-                center = Offset(size.width * 0.92f, size.height * 0.28f),
-                radius = size.width * 0.75f
+/**
+ * Fundo do cabeçalho: grafite com um brilho azul-esverdeado no canto direito.
+ * O brilho fica preso à TELA (não à página): ao arrastar entre abas, todas
+ * pintam o mesmo fundo no mesmo lugar e não aparece "corte" entre elas.
+ */
+fun Modifier.noirHeaderBackground(): Modifier = this.composed {
+    val origin = remember { androidx.compose.runtime.mutableStateOf(Offset.Zero) }
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val screenW = with(density) { config.screenWidthDp.dp.toPx() }
+    val glowY = with(density) { 230.dp.toPx() }
+    Modifier
+        .androidx_onPositioned { origin.value = it }
+        .background(AcertoPalette.Header)
+        .drawBehind {
+            val o = origin.value
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(AcertoPalette.HeaderGlow.copy(alpha = 0.85f), Color.Transparent),
+                    center = Offset(screenW * 0.92f - o.x, glowY - o.y),
+                    radius = screenW * 0.75f
+                )
             )
-        )
-    }
+        }
+}
+
+private fun Modifier.androidx_onPositioned(onRoot: (Offset) -> Unit): Modifier =
+    this.then(Modifier.onGloballyPositioned { onRoot(it.positionInRoot()) })
 
 /** Pílula do cabeçalho: clara (principal, com ícone num círculo escuro) ou escura. */
 @Composable
@@ -148,44 +167,6 @@ fun NoirRoundButton(
     ) { Icon(icon, contentDescription = null, tint = AcertoPalette.TextOnHeader, modifier = Modifier.size(22.dp)) }
 }
 
-/**
- * Cartões empilhados espiando na borda direita (amarelo, verde-água, azul).
- * Entram deslizando da borda, um depois do outro, com mola.
- */
-@Composable
-fun BoxScope.PeekingCardStack(count: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    if (count <= 0) return
-    val reduced = rememberReducedMotion()
-    val shown = count.coerceAtMost(3)
-    Box(
-        modifier = modifier
-            .align(Alignment.TopEnd)
-            .width(64.dp)
-            .height(176.dp)
-            .clickable(role = Role.Button, onClickLabel = "Ver compras no cartão", onClick = onClick)
-            .testTag("home_card_stack")
-    ) {
-        for (i in 0 until shown) {
-            val anim = remember { Animatable(if (reduced) 0f else 1f) }
-            LaunchedEffect(Unit) {
-                if (!reduced) {
-                    kotlinx.coroutines.delay(90L * i)
-                    anim.animateTo(0f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessLow))
-                }
-            }
-            Box(
-                Modifier
-                    .offset(x = (14 * i).dp)
-                    .graphicsLayer { translationX = anim.value * 160 * density }
-                    .width(130.dp)
-                    .height(176.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(AcertoPalette.Cards[i % AcertoPalette.Cards.size])
-            )
-        }
-    }
-}
-
 /** Bloco cinza do cabeçalho com rótulo, valor e avatares empilhados. */
 @Composable
 fun NoirHeaderTile(
@@ -209,7 +190,11 @@ fun NoirHeaderTile(
             Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = AcertoPalette.TextOnHeader, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (people.isNotEmpty()) {
-            StackedAvatars(people = people, size = 34.dp, ringColor = AcertoPalette.HeaderTile)
+            // indo para Pessoas: os avatares somem aqui e reaparecem lá, se espalhando na grade
+            val tabPosition = LocalTabPosition.current
+            Box(Modifier.graphicsLayer { alpha = 1f - ((1f - tabPosition()) * 2.5f).coerceIn(0f, 1f) }) {
+                StackedAvatars(people = people, size = 34.dp, ringColor = AcertoPalette.HeaderTile)
+            }
         }
     }
 }
@@ -221,7 +206,8 @@ fun SheetTop(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    Box(modifier = modifier.fillMaxWidth().background(AcertoPalette.Header)) {
+    // atrás dos cantos arredondados: o mesmo fundo do cabeçalho (com o brilho), sem "pontinha"
+    Box(modifier = modifier.fillMaxWidth().noirHeaderBackground()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -272,3 +258,9 @@ fun SplitMoney(
 @Composable
 fun navBarsBottom(): Dp =
     androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+/**
+ * Posição contínua das abas enquanto arrasta (0 = Pessoas, 1 = Início, 2 = Cartão).
+ * Lida só dentro de graphicsLayer/draw, para animar sem recompor.
+ */
+val LocalTabPosition = androidx.compose.runtime.staticCompositionLocalOf<() -> Float> { { 1f } }

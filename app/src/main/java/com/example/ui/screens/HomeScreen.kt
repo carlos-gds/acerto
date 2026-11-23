@@ -267,6 +267,25 @@ fun HomeScreen(
         matchesSearch && matchesFilter
     }
 
+    // Quanto cada pessoa deve no cartão neste mês (valor em destaque do Cartão e ordem dos cartões)
+    val cardMonthDue = remember(allInstallments, selectedYear, selectedMonth) {
+        allInstallments
+            .filter {
+                !it.isPaid && !it.isMyShare && it.expenseType == ExpenseType.CARD_PURCHASE &&
+                    it.year == selectedYear && it.month == selectedMonth
+            }
+            .groupBy { it.personId }
+            .mapValues { (_, l) -> Money.toReal(l.sumOf { it.amount }) }
+    }
+    // Grupos de pessoas no cartão, na mesma ordem usada tanto na pilha da Início quanto na
+    // lista do Cartão (e no overlay que os liga durante o arrastar entre os dois).
+    val cardGroups = remember(cardPurchases, allPeople, cardMonthDue) {
+        buildCardGroups(cardPurchases, allPeople, cardMonthDue)
+    }
+    // Âncoras e visibilidade da travessia Início↔Cartão: escritas pelas telas, lidas só pelo
+    // overlay e em fases de desenho — nunca aqui, para o arrasto não recompor esta tela.
+    val cardTransition = remember { CardTransitionState() }
+
     // Movimento: entrada progressiva dos cards (uma vez por item) e respeito à redução de animações
     val reducedMotion = rememberReducedMotion()
 
@@ -414,12 +433,23 @@ fun HomeScreen(
                     .nestedScroll(barScrollConnection)
                     .liquidBackdropSource(backdropState)
             ) {
+            // Progresso contínuo do pager, só lido na fase de desenho (dentro de graphicsLayer)
+            // pelas telas grandes, ou dentro do próprio CardTransitionOverlay (pequeno): nunca
+            // como valor de composição aqui, senão a árvore toda recomporia a cada frame do arrasto.
+            CompositionLocalProvider(
+                com.example.ui.components.LocalTabPosition provides { pagerState.currentPage + pagerState.currentPageOffsetFraction }
+            ) {
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pagerState,
                 userScrollEnabled = swipeEnabled,
                 key = { pagerTabs[it] },
                 modifier = Modifier.fillMaxSize().testTag("tabs_pager")
             ) { page ->
+            // Transição horizontal de verdade: a página que sai desliza para a esquerda e a
+            // que entra vem da direita (o próprio arrasto do pager, em ~300 ms ao soltar ou
+            // tocar na barra, com a mola de animateScrollToPage abaixo). O fundo de cada tela
+            // continua ancorado na raiz (noirHeaderBackground), então não aparece costura.
+            Box(Modifier.fillMaxSize()) {
             when (pagerTabs[page]) {
                 AppTab.HOME -> AnimatedContent(
                     targetState = openPersonId,
@@ -514,7 +544,8 @@ fun HomeScreen(
                             onReceive = { receivePersonId = null; receiveOpen = true },
                             onOpenCards = { selectedTab = AppTab.CARD },
                             onOpenProfile = { selectedTab = AppTab.SETTINGS },
-                            cardCount = cardPurchases.count { it.remainingInstallmentsCount > 0 },
+                            cardGroups = cardGroups,
+                            cardTransition = cardTransition,
                             searchBar = {
                                 ExpenseSearchFilterBar(
                                     query = expenseSearchQuery,
@@ -548,7 +579,10 @@ fun HomeScreen(
                     },
                     people = allPeople,
                     onReceive = { id -> receivePersonId = id; receiveOpen = true },
-                    onCharge = { id -> selectedTab = AppTab.HOME; openPersonId = id }
+                    onCharge = { id -> selectedTab = AppTab.HOME; openPersonId = id },
+                    monthDue = cardMonthDue,
+                    monthName = CurrencyFormatter.getMonthName(selectedMonth).lowercase(),
+                    cardTransition = cardTransition
                 )
 
                 AppTab.DEBTS -> PeopleScreen(
@@ -568,6 +602,7 @@ fun HomeScreen(
                 )
 
                 AppTab.SETTINGS -> Unit // fica por cima das páginas
+            }
             }
             }
 
@@ -591,6 +626,17 @@ fun HomeScreen(
                     )
                 }
             }
+
+            // Grupo de cartões em destaque, por cima do pager, durante a travessia Início↔Cartão
+            // (some sozinho fora dela: a pose real da Início ou os PersonCard do Cartão assumem).
+            CardTransitionOverlay(
+                groups = cardGroups,
+                isPrivacyMode = isPrivacyMode,
+                monthName = CurrencyFormatter.getMonthName(selectedMonth).lowercase(),
+                state = cardTransition,
+                enabled = normalizedSearchQuery.isBlank() && expenseListFilter == ExpenseListFilter.ALL
+            )
+            } // fecha CompositionLocalProvider(LocalTabPosition)
             }
 
             // Fade inferior do Figma: o conteúdo some suavemente atrás da barra.

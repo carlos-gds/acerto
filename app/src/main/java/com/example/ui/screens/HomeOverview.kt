@@ -36,7 +36,6 @@ import com.example.ui.theme.AcertoPalette
 import com.example.ui.components.noirHeaderBackground
 import com.example.ui.components.SplitMoney
 import com.example.ui.components.SheetTop
-import com.example.ui.components.PeekingCardStack
 import com.example.ui.components.NoirHeaderTile
 import com.example.ui.components.NoirRoundButton
 import com.example.ui.components.NoirPill
@@ -136,7 +135,7 @@ private fun totalsOf(groups: List<PersonMonthlyGroup>) = HomeTotals(
 )
 
 @Composable
-fun HomeOverview(
+internal fun HomeOverview(
     selectedYear: Int,
     selectedMonth: Int,
     isCurrentMonth: Boolean,
@@ -170,8 +169,10 @@ fun HomeOverview(
     onReceive: () -> Unit = {},
     /** Abre a aba Cartão (toque nos cartões empilhados). */
     onOpenCards: () -> Unit = {},
-    /** Quantas compras no cartão existem (cartões empilhados no cabeçalho). */
-    cardCount: Int = 0,
+    /** Grupos de pessoas no cartão (quem deve mais primeiro), para a pilha no cabeçalho. */
+    cardGroups: List<PersonCardGroup> = emptyList(),
+    /** Travessia Início↔Cartão: a pilha mede o ponto de partida e some enquanto o overlay a desenha. */
+    cardTransition: CardTransitionState? = null,
     /** Foto de perfil: abre os Ajustes. */
     onOpenProfile: () -> Unit = {},
     /** Deslizar a linha da pessoa para a esquerda: marca o mês dela como pago. */
@@ -202,7 +203,14 @@ fun HomeOverview(
                     .statusBarsPadding()
                     .padding(top = 8.dp, bottom = 34.dp)
             ) {
-                PeekingCardStack(count = cardCount, onClick = onOpenCards, modifier = Modifier.padding(top = 128.dp))
+                HomeCardGroupStack(
+                    groups = cardGroups,
+                    isPrivacyMode = isPrivacyMode,
+                    monthName = monthLower(selectedMonth),
+                    onClick = onOpenCards,
+                    modifier = Modifier.padding(top = 70.dp),
+                    transition = cardTransition
+                )
                 Column(Modifier.fillMaxWidth()) {
                     // Linha de cima: marca, mês e botões
                     Row(

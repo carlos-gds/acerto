@@ -59,6 +59,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -167,6 +169,7 @@ private fun PeopleGrid(
     StatusBarIcons(lightIcons = true)
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
+    val tabPosition = com.example.ui.components.LocalTabPosition.current
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val shown = if (query.isBlank()) totals else totals.filter { it.person.name.contains(query.trim(), ignoreCase = true) }
@@ -225,9 +228,13 @@ private fun PeopleGrid(
                         }
                     }
                     // grade de 3 colunas (como a referência)
+                    val gridOrigin = remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+                    val gridWidth = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
                     Column(
                         verticalArrangement = Arrangement.spacedBy(18.dp),
-                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 24.dp)
+                        modifier = Modifier
+                            .padding(start = 12.dp, end = 12.dp, top = 24.dp)
+                            .onGloballyPositioned { gridOrigin.value = it.positionInRoot(); gridWidth.floatValue = it.size.width.toFloat() }
                     ) {
                         (shown.map<PersonTotals, PersonTotals?> { it } + listOf(null)).chunked(3).forEachIndexed { row, chunk ->
                             Row(Modifier.fillMaxWidth()) {
@@ -240,11 +247,29 @@ private fun PeopleGrid(
                                             intro.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 420f))
                                         }
                                     }
+                                    val tileRoot = remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
                                     Box(
-                                        Modifier.weight(1f).graphicsLayer {
-                                            alpha = intro.value
-                                            translationY = (1f - intro.value) * 24f * density
-                                        }
+                                        Modifier
+                                            .weight(1f)
+                                            .onGloballyPositioned { tileRoot.value = it.positionInRoot() }
+                                            .graphicsLayer {
+                                                // vindo da Início: as fotos chegam juntas (como a pilha de
+                                                // avatares de lá) e se espalham pela grade, uma de cada vez
+                                                val e = tabPosition().coerceIn(0f, 1f) // 1 = ainda na Início
+                                                if (!reduced && e > 0f) {
+                                                    val lag = 0.07f * index.coerceAtMost(8)
+                                                    val local = (((1f - e) - lag) / (1f - lag)).coerceIn(0f, 1f)
+                                                    val k = 1f - androidx.compose.animation.core.FastOutSlowInEasing.transform(local)
+                                                    val relX = tileRoot.value.x - gridOrigin.value.x
+                                                    val relY = tileRoot.value.y - gridOrigin.value.y
+                                                    val gatherX = gridWidth.floatValue * 0.55f + index.coerceAtMost(5) * 22.dp.toPx() - size.width / 2f
+                                                    val gatherY = 8.dp.toPx()
+                                                    translationX = (gatherX - relX) * k
+                                                    translationY = (gatherY - relY) * k
+                                                    val sc = 1f - 0.5f * k
+                                                    scaleX = sc; scaleY = sc
+                                                }
+                                            }
                                     ) {
                                         if (t != null) PersonTile(t, isPrivacyMode) { onOpen(t.person.id) }
                                         else AddTile(onAddPerson)
