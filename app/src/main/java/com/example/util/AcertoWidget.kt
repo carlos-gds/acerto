@@ -22,8 +22,7 @@ class AcertoWidgetProvider : AppWidgetProvider() {
 object AppActions {
     const val RECEIVE = "com.example.acerto.RECEIVE"
     const val NEW_PURCHASE = "com.example.acerto.NEW_PURCHASE"
-    const val AI = "com.example.acerto.AI"
-    val all = setOf(RECEIVE, NEW_PURCHASE, AI)
+    val all = setOf(RECEIVE, NEW_PURCHASE)
 }
 
 object AcertoWidget {

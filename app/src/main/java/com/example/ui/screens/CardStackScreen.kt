@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.coachTarget
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -171,7 +172,10 @@ internal fun CardStackScreen(
     monthName: String = "este mês",
     /** Travessia Início↔Cartão: aqui só se medem os 3 primeiros cartões (ponto de chegada do
      *  overlay) e eles somem enquanto o overlay desenha o grupo por cima do pager. */
-    cardTransition: CardTransitionState? = null
+    cardTransition: CardTransitionState? = null,
+    /** Fatura do mês aberto: dos outros, recebido e (se informado) o total e a sua parte. */
+    fatura: com.example.util.Fatura.Summary? = null,
+    onEditFatura: () -> Unit = {}
 ) {
     StatusBarIcons(lightIcons = true, lightNavIcons = true)
     val reduced = rememberReducedMotion()
@@ -214,6 +218,9 @@ internal fun CardStackScreen(
                 color = AcertoPalette.TextOnHeaderMuted,
                 modifier = Modifier.padding(start = 20.dp, top = 2.dp)
             )
+            if (fatura != null && (fatura.othersCents > 0 || fatura.totalCents != null)) {
+                FaturaTile(fatura = fatura, monthName = monthName, isPrivacyMode = isPrivacyMode, onEdit = onEditFatura)
+            }
             AnimatedVisibility(visible = searchOpen) { Box(Modifier.padding(top = 12.dp)) { searchBar() } }
 
             if (groups.isEmpty()) {
@@ -259,6 +266,7 @@ internal fun CardStackScreen(
                                 alpha = (progress / 0.35f).coerceIn(0f, 1f)
                             }
                     ) {
+                      Box(if (i == 0) Modifier.coachTarget("card_open") else Modifier) {
                         PersonCard(
                             group = g,
                             color = color,
@@ -270,6 +278,7 @@ internal fun CardStackScreen(
                             onReceive = { onReceive(g.personId) },
                             onCharge = { onCharge(g.personId) }
                         )
+                      }
                         AnimatedVisibility(
                             visible = openPersonId == g.personId,
                             enter = expandVertically(spring(dampingRatio = 0.9f, stiffness = 380f)) + fadeIn(tween(AcertoMotion.FAST)),
@@ -338,6 +347,7 @@ internal fun BoxScope.HomeCardGroupStack(
                 .graphicsLayer { alpha = if (transition?.overlayShown == true) 0f else 1f }
                 .clickable(role = Role.Button, onClickLabel = "Ver compras no cartão", onClick = onClick)
                 .testTag("home_card_stack")
+                .then(Modifier.coachTarget("cards"))
         ) {
             shown.forEachIndexed { i, g ->
                 Box(
@@ -666,6 +676,69 @@ private fun EdgeButton(icon: ImageVector, label: String, cardColor: Color, onCli
     ) { Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp)) }
 }
 
+/**
+ * Fatura do mês: quanto dela é dos outros (e quanto disso já entrou) e, quando
+ * você informa o total, quanto é a sua parte.
+ */
+@Composable
+private fun FaturaTile(fatura: com.example.util.Fatura.Summary, monthName: String, isPrivacyMode: Boolean, onEdit: () -> Unit) {
+    val total = fatura.totalCents
+    Column(
+        Modifier
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(AcertoPalette.HeaderTile)
+            .clickable(role = Role.Button, onClickLabel = "Informar o valor da fatura", onClick = onEdit)
+            .padding(horizontal = 18.dp, vertical = 14.dp)
+            .testTag("fatura_tile")
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Fatura de $monthName", style = MaterialTheme.typography.bodyMedium, color = AcertoPalette.TextOnHeaderMuted)
+                Text(
+                    if (total != null) CurrencyFormatter.format(total, isPrivacyMode)
+                    else CurrencyFormatter.format(fatura.othersCents, isPrivacyMode) + " dos outros",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = AcertoPalette.TextOnHeader,
+                    modifier = Modifier.testTag("fatura_value")
+                )
+            }
+            Text(
+                if (total != null) "Editar" else "Informar total",
+                style = MaterialTheme.typography.labelLarge,
+                color = AcertoPalette.Header,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(AcertoPalette.PillLight)
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+        Text(
+            when {
+                total == null -> "Informe o total da fatura para ver a sua parte"
+                fatura.totalTooLow -> "O total está menor que as compras dos outros (${CurrencyFormatter.format(fatura.othersCents, isPrivacyMode)})"
+                else -> "Dos outros ${CurrencyFormatter.format(fatura.othersCents, isPrivacyMode)} · sua parte ${CurrencyFormatter.format(fatura.mineCents ?: 0L, isPrivacyMode)}"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (fatura.totalTooLow) Color(0xFFFFB74D) else AcertoPalette.TextOnHeaderMuted,
+            modifier = Modifier.padding(top = 6.dp).testTag("fatura_split")
+        )
+        if (fatura.othersCents > 0) {
+            val p = (fatura.receivedCents.toFloat() / fatura.othersCents).coerceIn(0f, 1f)
+            Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.10f))) {
+                Box(Modifier.fillMaxWidth(p).height(5.dp).clip(RoundedCornerShape(3.dp)).background(AcertoPalette.Mint))
+            }
+            Text(
+                "Já recebeu ${CurrencyFormatter.format(fatura.receivedCents, isPrivacyMode)} de ${CurrencyFormatter.format(fatura.othersCents, isPrivacyMode)} dos outros",
+                style = MaterialTheme.typography.bodySmall,
+                color = AcertoPalette.TextOnHeaderMuted,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
 /** Compras da pessoa: uma linha por compra, com progresso na cor do cartão. */
 @Composable
 private fun PurchaseList(
@@ -714,6 +787,17 @@ private fun PurchaseList(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp)
                     )
+                    if (p.groupWith.isNotEmpty()) {
+                        val others = p.groupWith.let { n -> if (n.size <= 1) n.joinToString() else n.dropLast(1).joinToString(", ") + " e " + n.last() }
+                        Text(
+                            "Dividida com $others" + (p.groupTotal?.let { " · compra de ${CurrencyFormatter.format(it, isPrivacyMode)}" } ?: ""),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = color,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp).testTag("purchase_group_${p.expense.id}")
+                        )
+                    }
                     Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.10f))) {
                         Box(Modifier.fillMaxWidth(p.progress.coerceIn(0f, 1f)).height(5.dp).clip(RoundedCornerShape(3.dp)).background(color))
                     }

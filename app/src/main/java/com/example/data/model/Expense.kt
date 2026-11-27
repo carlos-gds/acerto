@@ -23,7 +23,12 @@ data class Expense(
     val myShareAmount: Long = 0L,
     val otherShareAmount: Long = 0L,
     val notes: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * Compra dividida entre várias pessoas: cada pessoa tem a própria compra (com a parte
+     * dela e as próprias parcelas) e todas as partes têm o mesmo groupId. null = compra solta.
+     */
+    val groupId: Long? = null
 )
 
 /**

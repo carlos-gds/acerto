@@ -31,7 +31,7 @@ class Converters {
         Expense::class,
         InstallmentItem::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -70,9 +70,19 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "divide_facil_database"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        /**
+         * Versão 4: compra dividida. Só adiciona a coluna groupId (vazia nas compras que já
+         * existem); nada é recriado, então todos os dados ficam como estão.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN groupId INTEGER")
             }
         }
 

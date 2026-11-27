@@ -1,9 +1,7 @@
 package com.example
 
-import com.example.data.service.GeminiExpenseParser
 import com.example.util.CurrencyFormatter
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class ExampleUnitTest {
@@ -18,29 +16,6 @@ class ExampleUnitTest {
     assertEquals("Janeiro", month1)
     val month12 = CurrencyFormatter.getMonthName(12)
     assertEquals("Dezembro", month12)
-  }
-
-  @Test
-  fun testGeminiLocalFallbackParser() {
-    val parser = GeminiExpenseParser()
-
-    val res1 = parser.parseWithLocalFallback("Compra de 240 em 3x pra vó")
-    assertNotNull(res1)
-    assertEquals(240.0, res1!!.total_amount, 0.01)
-    assertEquals(3, res1.installments)
-    assertEquals("Vó", res1.target_person)
-
-    val res2 = parser.parseWithLocalFallback("Tênis de 300 em 3x pro Lucas")
-    assertNotNull(res2)
-    assertEquals(300.0, res2!!.total_amount, 0.01)
-    assertEquals(3, res2.installments)
-    assertEquals("Lucas", res2.target_person)
-
-    val res3 = parser.parseWithLocalFallback("Farmácia 75 pra Mãe")
-    assertNotNull(res3)
-    assertEquals(75.0, res3!!.total_amount, 0.01)
-    assertEquals(1, res3.installments)
-    assertEquals("Mãe", res3.target_person)
   }
 
   @Test

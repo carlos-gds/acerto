@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -423,6 +424,9 @@ private fun PersonProfile(
             Triple(first, Money.toReal(list.filter { !it.isPaid }.sumOf { it.amount }), Money.toReal(list.sumOf { it.amount }))
         }
         .sortedWith(compareByDescending<Triple<InstallmentItem, Double, Double>> { it.second > 0.001 }.thenByDescending { it.second })
+    val statement = remember(items) { com.example.util.Statement.build(items) }
+    var showAllStatement by rememberSaveable { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(liquid.sheetSurface).testTag("person_profile"),
@@ -502,6 +506,83 @@ private fun PersonProfile(
                     pending = Money.toReal(list.filter { !it.isPaid }.sumOf { it.amount }),
                     isPrivacyMode = isPrivacyMode,
                     onClick = { onOpenMonth(y, m) }
+                )
+            }
+        }
+
+        // Extrato: o que a pessoa já pagou, com data (pagamentos do mesmo "Receber" juntos)
+        item(key = "statement_title") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 24.dp, bottom = 4.dp)
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Extrato", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = liquid.textPrimary)
+                    Text("O que ${p.name} já te pagou", style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary)
+                }
+                if (statement.isNotEmpty()) {
+                    Box(
+                        Modifier
+                            .size(44.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(liquid.cardSurfaceVariant)
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Compartilhar extrato") {
+                                val text = com.example.util.Statement.shareText(p.name, items)
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, text)
+                                }
+                                runCatching { context.startActivity(android.content.Intent.createChooser(send, "Enviar extrato")) }
+                            }
+                            .testTag("profile_statement_share"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartilhar extrato", tint = liquid.textPrimary, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+        if (statement.isEmpty()) {
+            item(key = "statement_empty") {
+                Text("Nenhum pagamento ainda.", style = MaterialTheme.typography.bodyMedium, color = liquid.textSecondary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+            }
+        }
+        val shownStatement = if (showAllStatement) statement else statement.take(6)
+        items(shownStatement, key = { "st_${it.paidAt}" }) { e ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 8.dp).testTag("statement_entry")
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(com.example.util.Statement.date(e.paidAt), style = MaterialTheme.typography.bodyLarge, color = liquid.textPrimary)
+                    Text(
+                        e.items.joinToString(", "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = liquid.textSecondary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "+ " + CurrencyFormatter.format(Money.toReal(e.amountCents), isPrivacyMode),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = liquid.accentPaid
+                )
+            }
+        }
+        if (statement.size > 6) {
+            item(key = "statement_more") {
+                Text(
+                    if (showAllStatement) "Mostrar menos" else "Ver todos os ${statement.size} pagamentos",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = liquid.textPrimary,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { showAllStatement = !showAllStatement }
+                        .padding(horizontal = 4.dp, vertical = 10.dp)
+                        .testTag("statement_more")
                 )
             }
         }

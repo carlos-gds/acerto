@@ -319,6 +319,46 @@ class FinanceRepository(
         installmentDao.insertInstallments(snapshot.installments)
     }
 
+    /**
+     * Compra dividida: cria uma compra por pessoa (cada uma com a parte dela, nas mesmas
+     * parcelas) e liga todas pelo mesmo groupId (o id da primeira). Tudo ou nada.
+     */
+    suspend fun addCardPurchaseGroup(
+        title: String,
+        shares: List<Pair<Person, Double>>,
+        totalInstallments: Int,
+        startYear: Int,
+        startMonth: Int,
+        notes: String = "",
+        markPastInstallmentsAsPaid: Boolean = false,
+        referenceYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+        referenceMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1
+    ): Long = tx {
+        val ids = shares.map { (person, amount) ->
+            addCardPurchase(
+                title = title,
+                totalAmount = amount,
+                person = person,
+                totalInstallments = totalInstallments,
+                startYear = startYear,
+                startMonth = startMonth,
+                notes = notes,
+                markPastInstallmentsAsPaid = markPastInstallmentsAsPaid,
+                referenceYear = referenceYear,
+                referenceMonth = referenceMonth
+            )
+        }
+        val groupId = ids.first()
+        if (ids.size > 1) {
+            ids.forEach { id ->
+                expenseDao.getExpenseById(id)?.let { expenseDao.updateExpense(it.copy(groupId = groupId)) }
+            }
+        }
+        groupId
+    }
+
+    suspend fun getExpensesByGroupId(groupId: Long): List<Expense> = expenseDao.getExpensesByGroupId(groupId)
+
     suspend fun deleteExpense(expenseId: Long): Unit = tx {
         installmentDao.deleteByExpenseId(expenseId)
         expenseDao.deleteExpenseById(expenseId)

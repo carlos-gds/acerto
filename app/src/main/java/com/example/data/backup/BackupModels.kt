@@ -63,7 +63,8 @@ data class ExpenseBackupDto(
     val myShareAmount: Double = 0.0,
     val otherShareAmount: Double = 0.0,
     val notes: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val groupId: Long? = null
 ) {
     fun toEntity(): Expense {
         val expenseType = try {
@@ -84,7 +85,8 @@ data class ExpenseBackupDto(
             myShareAmount = Money.fromReal(myShareAmount),
             otherShareAmount = Money.fromReal(otherShareAmount),
             notes = notes,
-            createdAt = createdAt
+            createdAt = createdAt,
+            groupId = groupId
         )
     }
 
@@ -102,7 +104,8 @@ data class ExpenseBackupDto(
             myShareAmount = Money.toReal(expense.myShareAmount),
             otherShareAmount = Money.toReal(expense.otherShareAmount),
             notes = expense.notes,
-            createdAt = expense.createdAt
+            createdAt = expense.createdAt,
+            groupId = expense.groupId
         )
     }
 }

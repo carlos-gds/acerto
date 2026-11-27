@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Bloqueio do app com digital/rosto ou senha do celular -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- Lembrete mensal: notificação (Android 13+) e reagendar após reiniciar -->

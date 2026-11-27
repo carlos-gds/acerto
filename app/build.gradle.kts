@@ -1,12 +1,19 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.util.Properties
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
 
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+}
+
+// Pasta com as chaves de assinatura (fora do projeto). Vem de keystore.properties
+// (não vai para o Git): pasta=C:\\caminho\\da\\pasta
+val chavePasta: File? = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f ->
+  val p = Properties().apply { f.inputStream().use { load(it) } }
+  p.getProperty("pasta")?.let { File(it) }?.takeIf { it.isDirectory }
 }
 
 android {
@@ -17,19 +24,22 @@ android {
     applicationId = "com.aistudio.dividicard.xfkql"
     minSdk = 24
     targetSdk = 36
-    versionCode = 20
-    versionName = "1.13"
+    versionCode = 21
+    versionName = "1.14"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
+    // Chave antiga (a de debug que assinou da 1.4 à 1.13). O Gradle assina com ela e,
+    // se a pasta da chave estiver configurada, a tarefa assinarComRotacao assina de novo
+    // com a antiga + a nova (rotação de chave). Prefere a cópia guardada na pasta da chave.
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      val guardada = chavePasta?.resolve("debug.keystore")
+      storeFile = if (guardada != null && guardada.exists()) guardada else file("${System.getProperty("user.home")}/.android/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
     }
   }
 
@@ -41,10 +51,7 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Usa a chave de upload quando ela existir; até lá, assina com a chave de debug
-      // deste computador para continuar instalando por cima das versões já publicadas.
-      val uploadKey = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
-      signingConfig = if (uploadKey.exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.getByName("release")
     }
     debug { }
   }
@@ -65,16 +72,6 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
-}
-
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
-
 // Room grava o esquema de cada versão do banco em app/schemas (versionar no Git):
 // serve de referência para escrever e testar as próximas migrations.
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
@@ -83,7 +80,6 @@ ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 // This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -106,23 +102,10 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   // implementation(libs.coil.compose)
   // implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
-
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
-  // implementation(libs.firebase.auth)
-  // implementation(libs.androidx.credentials)
-  // implementation(libs.androidx.credentials.play.services)
-  // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   // implementation(libs.logging.interceptor)
   // implementation(libs.moshi.kotlin)
-  implementation(libs.okhttp)
   // implementation(libs.play.services.location)
   // implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
@@ -143,4 +126,59 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   // "ksp"(libs.moshi.kotlin.codegen)
+}
+
+/*
+ * Rotação de chave (APK Signature Scheme v3): o APK sai assinado com a chave antiga e com
+ * a nova, ligadas pelo arquivo de linhagem. Quem tem a 1.13 instalada atualiza por cima
+ * normalmente; do Android 9 em diante o app passa a ser reconhecido pela chave nova.
+ * Android 7 e 8 não conhecem rotação e continuam conferindo a chave antiga, então as duas
+ * precisam ficar guardadas para sempre.
+ */
+abstract class AssinarComRotacao : DefaultTask() {
+  @get:Inject abstract val execOps: ExecOperations
+  @get:Internal abstract val apk: RegularFileProperty
+  @get:Internal abstract val apksignerJar: RegularFileProperty
+  @get:Internal abstract val pasta: DirectoryProperty
+
+  @TaskAction
+  fun assinar() {
+    val apkFile = apk.get().asFile
+    val dir = pasta.get().asFile
+    val java = File(System.getProperty("java.home"), "bin/java").path
+    val jar = apksignerJar.get().asFile.path
+    val tmp = File(apkFile.parentFile, apkFile.nameWithoutExtension + "-rotacao.apk")
+    fun f(nome: String) = File(dir, nome).also { require(it.exists()) { "Falta ${it.path}" } }.path
+    execOps.exec {
+      commandLine(
+        java, "-jar", jar, "sign",
+        "--ks", f("debug.keystore"), "--ks-key-alias", "androiddebugkey", "--ks-pass", "pass:android", "--key-pass", "pass:android",
+        "--next-signer",
+        "--ks", f("acerto-release.jks"), "--ks-key-alias", "acerto", "--ks-pass", "file:" + f("senha.txt"),
+        "--lineage", f("acerto-lineage.bin"),
+        "--rotation-min-sdk-version", "28",
+        "--v4-signing-enabled", "false",
+        "--out", tmp.path, apkFile.path
+      )
+    }
+    execOps.exec { commandLine(java, "-jar", jar, "verify", "--min-sdk-version", "24", tmp.path) }
+    apkFile.delete()
+    check(tmp.renameTo(apkFile)) { "Não consegui substituir ${apkFile.path}" }
+    logger.lifecycle("APK assinado com a chave antiga + a nova (rotação): ${apkFile.path}")
+  }
+}
+
+if (chavePasta != null) {
+  val assinar = tasks.register<AssinarComRotacao>("assinarComRotacao") {
+    group = "build"
+    description = "Assina a release com a chave antiga e a nova (rotação de chave)."
+    apk.set(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    val buildTools = android.buildToolsVersion
+    apksignerJar.set(androidComponents.sdkComponents.sdkDirectory.map { it.file("build-tools/$buildTools/lib/apksigner.jar") })
+    pasta.set(chavePasta)
+    outputs.upToDateWhen { false }
+  }
+  tasks.configureEach { if (name == "assembleRelease") finalizedBy(assinar) }
+} else {
+  logger.warn("keystore.properties não encontrado: a release sai só com a chave antiga (sem rotação).")
 }

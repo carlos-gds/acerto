@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.example.ui.components.coachTarget
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -152,7 +154,6 @@ internal fun HomeOverview(
     onSearchClick: () -> Unit,
     onAddCardPurchase: () -> Unit,
     onAddSharedBill: () -> Unit,
-    onAiEntry: () -> Unit,
     onOpenPerson: (Long) -> Unit,
     onEditItem: (InstallmentItem) -> Unit,
     onDeleteItem: (InstallmentItem) -> Unit,
@@ -176,7 +177,15 @@ internal fun HomeOverview(
     /** Foto de perfil: abre os Ajustes. */
     onOpenProfile: () -> Unit = {},
     /** Deslizar a linha da pessoa para a esquerda: marca o mês dela como pago. */
-    onMarkPersonPaid: (PersonMonthlyGroup) -> Unit = {}
+    onMarkPersonPaid: (PersonMonthlyGroup) -> Unit = {},
+    /** Guia da primeira vez ("Vamos começar?"); null = escondido. */
+    startGuide: com.example.ui.components.StartGuideSteps? = null,
+    onAddPerson: () -> Unit = {},
+    onCloseStartGuide: () -> Unit = {},
+    /** Lembrete de backup: data do último (0 = nunca); null = escondido. */
+    backupReminderLastAt: Long? = null,
+    onBackupNow: () -> Unit = {},
+    onBackupLater: () -> Unit = {}
 ) {
     val liquid = LocalLiquidGlassColors.current
     val reduced = rememberReducedMotion()
@@ -318,12 +327,6 @@ internal fun HomeOverview(
                                     onClick = { moreMenu = false; onAddSharedBill() },
                                     modifier = Modifier.testTag("home_split_button")
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("Lançar com IA") },
-                                    leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-                                    onClick = { moreMenu = false; onAiEntry() },
-                                    modifier = Modifier.testTag("home_ai_button")
-                                )
                             }
                         }
                     }
@@ -362,13 +365,39 @@ internal fun HomeOverview(
             }
         }
 
+        if (startGuide != null && !hasSearchQuery) {
+            item(key = "start_guide") {
+                com.example.ui.components.StartGuideCard(
+                    steps = startGuide,
+                    onAddPerson = onAddPerson,
+                    onAddPurchase = onAddCardPurchase,
+                    onReceive = onReceive,
+                    onClose = onCloseStartGuide,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)
+                )
+            }
+        }
+
+        if (backupReminderLastAt != null && !hasSearchQuery) {
+            item(key = "backup_reminder") {
+                com.example.ui.components.BackupReminderCard(
+                    lastAt = backupReminderLastAt,
+                    onBackup = onBackupNow,
+                    onLater = onBackupLater,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)
+                )
+            }
+        }
+
         if (groups.isNotEmpty()) {
             val sorted = groups.sortedWith(
                 compareBy<PersonMonthlyGroup> { it.pendingAmount <= 0.001 }.thenByDescending { it.pendingAmount }
             )
-            items(sorted, key = { "person_${it.personId}" }) { group ->
-                SwipeToPayRow(group = group, onPaid = { onMarkPersonPaid(group) }) {
-    NoirPersonRow(group = group, isPrivacyMode = isPrivacyMode, onClick = { onOpenPerson(group.personId) })
+            itemsIndexed(sorted, key = { _, it -> "person_${it.personId}" }) { index, group ->
+                Box(if (index == 0) Modifier.coachTarget("swipe_paid") else Modifier) {
+                    SwipeToPayRow(group = group, onPaid = { onMarkPersonPaid(group) }) {
+                        NoirPersonRow(group = group, isPrivacyMode = isPrivacyMode, onClick = { onOpenPerson(group.personId) })
+                    }
                 }
             }
         } else {

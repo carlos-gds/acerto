@@ -114,17 +114,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ExpenseType
 import com.example.data.model.InstallmentItem
-import com.example.ui.components.AiExpenseConfirmationDialog
 import com.example.ui.components.BackupSettingsDialog
 import com.example.ui.components.CardPurchasesProgressSection
 import com.example.ui.components.DeleteExpenseDialog
-import com.example.ui.components.EditExpenseDialog
-import com.example.ui.components.EditSharedBillDialog
 import com.example.ui.components.ExpenseListFilter
 import com.example.ui.components.ExpenseSearchFilterBar
 import com.example.ui.components.ManagePeopleDialog
 import com.example.ui.components.MyShareItemCard
-import com.example.ui.components.QuickAiEntryBottomSheet
 import com.example.ui.components.glass.LiquidBackground
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.ui.viewmodel.FinanceViewModel
@@ -153,13 +149,12 @@ fun HomeScreen(
     val homeExpandedCardStates by viewModel.homeExpandedCardStates.collectAsStateWithLifecycle()
     val allInstallments by viewModel.allInstallments.collectAsStateWithLifecycle()
     val allExpenses by viewModel.allExpenses.collectAsStateWithLifecycle()
+    // Partes da compra dividida a que esta compra pertence (vazio se for uma compra solta)
+    fun groupOf(expenseId: Long): List<com.example.data.model.Expense> {
+        val gid = allExpenses.firstOrNull { it.id == expenseId }?.groupId ?: return emptyList()
+        return allExpenses.filter { it.groupId == gid }.sortedBy { it.id }
+    }
     val monthlyHistory by viewModel.monthlyHistory.collectAsStateWithLifecycle()
-
-    val isAiBottomSheetVisible by viewModel.isAiBottomSheetVisible.collectAsStateWithLifecycle()
-    val isAiLoading by viewModel.isAiLoading.collectAsStateWithLifecycle()
-    val aiError by viewModel.aiError.collectAsStateWithLifecycle()
-    val pendingAiExpense by viewModel.pendingAiExpense.collectAsStateWithLifecycle()
-    val showAiConfirmationDialog by viewModel.showAiConfirmationDialog.collectAsStateWithLifecycle()
 
     val isBackupDialogVisible by viewModel.isBackupDialogVisible.collectAsStateWithLifecycle()
     val backupUiState by viewModel.backupUiState.collectAsStateWithLifecycle()
@@ -197,11 +192,15 @@ fun HomeScreen(
     var expenseSearchQuery by remember { mutableStateOf("") }
     var expenseListFilter by remember { mutableStateOf(ExpenseListFilter.ALL) }
     var itemToEdit by remember { mutableStateOf<InstallmentItem?>(null) }
+    // exclusão aberta pela lixeira do Cartão (lá não existe "só esta parcela")
+    var deleteFromCard by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<InstallmentItem?>(null) }
     // Pessoa aberta na Início (tela lado a lado); null = resumo do mês
     var openPersonId by rememberSaveable { mutableStateOf<Long?>(null) }
     // Fluxo "Receber" (tela cheia por cima de tudo)
     var receiveOpen by rememberSaveable { mutableStateOf(false) }
+    // folha para informar o total da fatura do mês (aba Cartão)
+    var faturaOpen by remember { mutableStateOf(false) }
     var receivePersonId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Atalhos do ícone e do widget
@@ -209,7 +208,6 @@ fun HomeScreen(
         when (launchAction) {
             com.example.util.AppActions.RECEIVE -> { selectedTab = AppTab.HOME; receivePersonId = null; receiveOpen = true }
             com.example.util.AppActions.NEW_PURCHASE -> showAddCardExpenseDialog = true
-            com.example.util.AppActions.AI -> viewModel.openAiBottomSheet()
             else -> return@LaunchedEffect
         }
         onLaunchActionHandled()
@@ -414,7 +412,7 @@ fun HomeScreen(
         }
     }
     // sem arrastar enquanto algo está aberto por cima
-    val swipeEnabled = !receiveOpen && !showAddCardExpenseDialog && !showAddSharedBillDialog && selectedTab != AppTab.SETTINGS
+    val swipeEnabled = !receiveOpen && !showAddCardExpenseDialog && !showAddSharedBillDialog && itemToEdit == null && !faturaOpen && selectedTab != AppTab.SETTINGS
 
     // Fundo Obsidian Liquid Glass cobrindo a tela toda
     // Liquid Glass adaptativo: blur real no Android 12+ (fonte = conteúdo das abas);
@@ -422,8 +420,68 @@ fun HomeScreen(
     val blurLevel = rememberLiquidBlurLevel()
     val backdropState = if (blurLevel != LiquidBlurLevel.NONE) rememberLiquidBackdropState() else null
 
+    // Fatura do mês aberto (o total é você quem informa; fica só no aparelho)
+    var faturaVersion by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val faturaTotal = remember(selectedYear, selectedMonth, faturaVersion) { com.example.util.Fatura.getTotal(context, selectedYear, selectedMonth) }
+    val fatura = remember(allInstallments, selectedYear, selectedMonth, faturaTotal) {
+        com.example.util.Fatura.summary(allInstallments, selectedYear, selectedMonth, faturaTotal)
+    }
+
+    // Guia da primeira vez: cartão "Vamos começar?" e dicas de uma vez só, na hora certa
+    val guide = com.example.ui.components.rememberGuideState()
+    val coachTargets = remember { com.example.ui.components.CoachTargets() }
+    val startGuideSteps = com.example.ui.components.StartGuideSteps(
+        hasPeople = allPeople.isNotEmpty(),
+        hasPurchase = allExpenses.isNotEmpty(),
+        hasReceived = allInstallments.any { it.isPaid && !it.isMyShare }
+    )
+    // os dados chegam do banco logo depois da primeira tela: espera um instante antes de
+    // decidir mostrar o guia (senão ele piscaria para quem já usa o app)
+    var guideReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(900); guideReady = true }
+    LaunchedEffect(startGuideSteps.allDone) {
+        if (startGuideSteps.allDone && !guide.startClosed) guide.closeStart()
+    }
+    val coachPresent by remember { androidx.compose.runtime.derivedStateOf { coachTargets.rects.keys.toSet() } }
+    val calm = guideReady && !showAddCardExpenseDialog && !showAddSharedBillDialog && !receiveOpen &&
+        itemToEdit == null && itemToDelete == null && !showManagePeopleDialog && !isSearchOpen && !faturaOpen &&
+        !pagerState.isScrollInProgress && selectedTab != AppTab.SETTINGS
+    val tipCandidate = if (!calm) null else coachTips.firstOrNull { t ->
+        !guide.isSeen(t.id) && t.id in coachPresent && when (t.id) {
+            "card_open" -> selectedTab == AppTab.CARD
+            else -> selectedTab == AppTab.HOME && openPersonId == null
+        }
+    }
+    // Lembrete de backup (só quando o guia de início não está na tela)
+    val backupReminder = com.example.ui.components.rememberBackupReminderState()
+    val hasData = allExpenses.isNotEmpty()
+    LaunchedEffect(hasData) { if (hasData) backupReminder.noteHasData() }
+    val startGuideVisible = guideReady && !guide.startClosed && !startGuideSteps.allDone
+    val showBackupReminder = guideReady && !startGuideVisible && backupReminder.shouldRemind(hasData)
+    fun launchBackup() {
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        exportLauncher.launch("acerto-backup-$dateStr.json")
+    }
+    // backup feito pelo lembrete (fora da tela de Backup): avisa no rodapé
+    LaunchedEffect(backupUiState, isBackupDialogVisible) {
+        if (isBackupDialogVisible) return@LaunchedEffect
+        when (val s = backupUiState) {
+            is com.example.ui.viewmodel.BackupUiState.Success -> { notify("Backup salvo"); viewModel.resetBackupStatus() }
+            is com.example.ui.viewmodel.BackupUiState.Error -> { notify(s.message); viewModel.resetBackupStatus() }
+            else -> Unit
+        }
+    }
+    var shownTip by remember { mutableStateOf<com.example.ui.components.CoachTip?>(null) }
+    LaunchedEffect(tipCandidate?.id) {
+        shownTip = null
+        if (tipCandidate != null) {
+            kotlinx.coroutines.delay(700) // espera a tela assentar
+            shownTip = tipCandidate
+        }
+    }
+
     LiquidBackground(modifier = modifier) {
-    CompositionLocalProvider(LocalLiquidBackdrop provides backdropState) {
+    CompositionLocalProvider(LocalLiquidBackdrop provides backdropState, com.example.ui.components.LocalCoachTargets provides coachTargets) {
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -519,7 +577,6 @@ fun HomeScreen(
                             onSearchClick = { if (isSearchOpen) closeSearch() else isSearchOpen = true },
                             onAddCardPurchase = { showAddCardExpenseDialog = true },
                             onAddSharedBill = { showAddSharedBillDialog = true },
-                            onAiEntry = { viewModel.openAiBottomSheet() },
                             onOpenPerson = { openPersonId = it },
                             onMarkPersonPaid = { g ->
                                 val open = g.items.filter { !it.isPaid && !it.isMyShare }
@@ -546,6 +603,12 @@ fun HomeScreen(
                             onOpenProfile = { selectedTab = AppTab.SETTINGS },
                             cardGroups = cardGroups,
                             cardTransition = cardTransition,
+                            startGuide = startGuideSteps.takeIf { startGuideVisible },
+                            backupReminderLastAt = backupReminder.lastAt.takeIf { showBackupReminder },
+                            onBackupNow = { launchBackup() },
+                            onBackupLater = { backupReminder.snooze() },
+                            onAddPerson = { showManagePeopleDialog = true },
+                            onCloseStartGuide = { guide.closeStart() },
                             searchBar = {
                                 ExpenseSearchFilterBar(
                                     query = expenseSearchQuery,
@@ -574,15 +637,24 @@ fun HomeScreen(
                     },
                     onAddPurchase = { personId -> purchasePersonId = personId; showAddCardExpenseDialog = true },
                     onDelete = { id ->
-                        viewModel.deleteExpense(id)
-                        notifyUndo("Compra excluída")
+                        // compra dividida: pergunta antes (só a parte desta pessoa ou a compra inteira)
+                        val part = if (groupOf(id).size > 1) allInstallments.firstOrNull { it.expenseId == id } else null
+                        if (part != null) {
+                            deleteFromCard = true
+                            itemToDelete = part
+                        } else {
+                            viewModel.deleteExpense(id)
+                            notifyUndo("Compra excluída")
+                        }
                     },
                     people = allPeople,
                     onReceive = { id -> receivePersonId = id; receiveOpen = true },
                     onCharge = { id -> selectedTab = AppTab.HOME; openPersonId = id },
                     monthDue = cardMonthDue,
                     monthName = CurrencyFormatter.getMonthName(selectedMonth).lowercase(),
-                    cardTransition = cardTransition
+                    cardTransition = cardTransition,
+                    fatura = fatura,
+                    onEditFatura = { faturaOpen = true }
                 )
 
                 AppTab.DEBTS -> PeopleScreen(
@@ -843,17 +915,29 @@ fun HomeScreen(
                 currentYear = selectedYear,
                 currentMonth = selectedMonth,
                 onAddPerson = { showManagePeopleDialog = true },
-                onConfirm = { title, totalAmount, person, installments, startYear, startMonth, notes, markPastAsPaid ->
-                    viewModel.addCardPurchase(
-                        title = title,
-                        totalAmount = totalAmount,
-                        person = person,
-                        totalInstallments = installments,
-                        startYear = startYear,
-                        startMonth = startMonth,
-                        notes = notes,
-                        markPastInstallmentsAsPaid = markPastAsPaid
-                    )
+                onConfirm = { title, totalAmount, shares, installments, startYear, startMonth, notes, markPastAsPaid ->
+                    if (shares.size == 1) {
+                        viewModel.addCardPurchase(
+                            title = title,
+                            totalAmount = totalAmount,
+                            person = shares.first().first,
+                            totalInstallments = installments,
+                            startYear = startYear,
+                            startMonth = startMonth,
+                            notes = notes,
+                            markPastInstallmentsAsPaid = markPastAsPaid
+                        )
+                    } else {
+                        viewModel.addCardPurchaseGroup(
+                            title = title,
+                            shares = shares,
+                            totalInstallments = installments,
+                            startYear = startYear,
+                            startMonth = startMonth,
+                            notes = notes,
+                            markPastInstallmentsAsPaid = markPastAsPaid
+                        )
+                    }
                 },
                 onClose = { showAddCardExpenseDialog = false; purchasePersonId = null }
             )
@@ -886,73 +970,121 @@ fun HomeScreen(
                 onClose = { showAddSharedBillDialog = false }
             )
         }
-    }
-    }
 
-    // Dialog: Editar Lançamento (Conta Dividida ou Compra no Cartão)
-    if (itemToEdit != null) {
-        val editingItem = itemToEdit!!
-        if (editingItem.expenseType == ExpenseType.SHARED_BILL || editingItem.isMyShare) {
-            EditSharedBillDialog(
-                item = editingItem,
-                people = allPeople,
-                selectedYear = editingItem.year,
-                selectedMonth = editingItem.month,
-                onLoadExpense = { id -> viewModel.getExpense(id) },
-                onDismiss = { itemToEdit = null },
-                onConfirm = { expenseId, newTitle, newTotalAmount, newPerson, newMyShare, newOtherShare, updateAllMonths ->
-                    viewModel.updateSharedBill(
-                        expenseId = expenseId,
-                        newTitle = newTitle,
-                        newTotalAmount = newTotalAmount,
-                        newPerson = newPerson,
-                        newMyShareAmount = newMyShare,
-                        newOtherShareAmount = newOtherShare,
-                        updateAllMonths = updateAllMonths,
-                        specificYear = editingItem.year,
-                        specificMonth = editingItem.month
+        // Editar lançamento, no mesmo estilo dos fluxos novos (compra no cartão ou conta dividida)
+        val lastEdit = remember { mutableStateOf<InstallmentItem?>(null) }
+        androidx.compose.runtime.SideEffect { if (itemToEdit != null) lastEdit.value = itemToEdit }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = itemToEdit != null,
+            enter = fadeIn(tween(AcertoMotion.FAST)),
+            exit = fadeOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut)) +
+                androidx.compose.animation.scaleOut(tween(AcertoMotion.SLOW, easing = AcertoMotion.SmoothOut), targetScale = 1.04f)
+        ) {
+            val editing = itemToEdit ?: lastEdit.value
+            if (editing != null) key(editing.id) {
+                if (editing.expenseType == ExpenseType.SHARED_BILL || editing.isMyShare) {
+                    EditSplitFlow(
+                        item = editing,
+                        people = allPeople,
+                        selectedYear = editing.year,
+                        selectedMonth = editing.month,
+                        onLoadExpense = { id -> viewModel.getExpense(id) },
+                        onAddPerson = { showManagePeopleDialog = true },
+                        onConfirm = { expenseId, newTitle, newTotalAmount, newPerson, newMyShare, newOtherShare, updateAllMonths ->
+                            viewModel.updateSharedBill(
+                                expenseId = expenseId,
+                                newTitle = newTitle,
+                                newTotalAmount = newTotalAmount,
+                                newPerson = newPerson,
+                                newMyShareAmount = newMyShare,
+                                newOtherShareAmount = newOtherShare,
+                                updateAllMonths = updateAllMonths,
+                                specificYear = editing.year,
+                                specificMonth = editing.month
+                            )
+                        },
+                        onClose = { itemToEdit = null }
                     )
-                    itemToEdit = null
-                    notify("Alterações salvas")
-                }
-            )
-        } else {
-            EditExpenseDialog(
-                item = editingItem,
-                people = allPeople,
-                onDismiss = { itemToEdit = null },
-                onConfirm = { expenseId, newTitle, newTotalAmount, newPerson, newTotalInstallments, startYear, startMonth ->
-                    viewModel.updateExpense(
-                        expenseId = expenseId,
-                        newTitle = newTitle,
-                        newTotalAmount = newTotalAmount,
-                        newPerson = newPerson,
-                        newTotalInstallments = newTotalInstallments,
-                        startYear = startYear,
-                        startMonth = startMonth
+                } else {
+                    EditPurchaseFlow(
+                        item = editing,
+                        people = allPeople,
+                        group = groupOf(editing.expenseId),
+                        onConfirmGroup = { parts, newTitle, newTotalInstallments, startYear, startMonth ->
+                            viewModel.updateCardPurchaseGroup(parts, newTitle, newTotalInstallments, startYear, startMonth)
+                        },
+                        onAddPerson = { showManagePeopleDialog = true },
+                        onConfirm = { expenseId, newTitle, newTotalAmount, newPerson, newTotalInstallments, startYear, startMonth ->
+                            viewModel.updateExpense(
+                                expenseId = expenseId,
+                                newTitle = newTitle,
+                                newTotalAmount = newTotalAmount,
+                                newPerson = newPerson,
+                                newTotalInstallments = newTotalInstallments,
+                                startYear = startYear,
+                                startMonth = startMonth
+                            )
+                        },
+                        onClose = { itemToEdit = null }
                     )
-                    itemToEdit = null
-                    notify("Alterações salvas")
                 }
+            }
+        }
+
+        // Total da fatura do mês (teclado)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = faturaOpen,
+            enter = if (reducedMotion) fadeIn(tween(0)) else slideInVertically(spring(dampingRatio = 0.86f, stiffness = 380f)) { it } + fadeIn(tween(120)),
+            exit = if (reducedMotion) fadeOut(tween(0)) else slideOutVertically(tween(AcertoMotion.FAST, easing = AcertoMotion.SmoothOut)) { it } + fadeOut(tween(AcertoMotion.FAST))
+        ) {
+            FaturaAmountSheet(
+                monthName = CurrencyFormatter.getMonthName(selectedMonth).lowercase(),
+                initialCents = faturaTotal,
+                othersCents = fatura.othersCents,
+                onSave = { cents ->
+                    com.example.util.Fatura.setTotal(context, selectedYear, selectedMonth, cents)
+                    faturaVersion++
+                    faturaOpen = false
+                    notify("Fatura de ${CurrencyFormatter.getMonthName(selectedMonth).lowercase()} salva")
+                },
+                onClose = { faturaOpen = false }
             )
         }
+
+        // Dica da vez (escurece a tela e destaca o elemento real)
+        shownTip?.let { tip ->
+            coachTargets[tip.id]?.let { rect ->
+                com.example.ui.components.CoachMarkOverlay(tip = tip, target = rect, onDismiss = { guide.markSeen(tip.id) })
+            }
+        }
+    }
     }
 
-    // Dialog: Excluir Lançamento
+    // Dialog: Excluir Lançamento (na compra dividida, pergunta se é só a parte ou a compra inteira)
     if (itemToDelete != null) {
+        val deleting = itemToDelete!!
+        val group = groupOf(deleting.expenseId)
         DeleteExpenseDialog(
-            item = itemToDelete!!,
+            item = deleting,
             isPrivacyMode = isPrivacyMode,
-            onDismiss = { itemToDelete = null },
-            onDeleteSingleInstallment = {
-                viewModel.deleteSingleInstallment(itemToDelete!!.id)
+            onDismiss = { itemToDelete = null; deleteFromCard = false },
+            onDeleteSingleInstallment = if (deleteFromCard) null else ({
+                viewModel.deleteSingleInstallment(deleting.id)
                 itemToDelete = null
                 notifyUndo("Parcela excluída")
-            },
+            }),
             onDeleteAllInstallments = {
-                viewModel.deleteExpense(itemToDelete!!.expenseId)
-                itemToDelete = null
-                notifyUndo("Lançamento excluído")
+                viewModel.deleteExpense(deleting.expenseId)
+                itemToDelete = null; deleteFromCard = false
+                notifyUndo(if (group.size > 1) "Parte de ${deleting.personName} excluída" else "Lançamento excluído")
+            },
+            groupWith = group.filter { it.id != deleting.expenseId }.mapNotNull { e -> allPeople.firstOrNull { it.id == e.personId }?.name },
+            onDeleteGroup = group.firstOrNull()?.groupId?.let { gid ->
+                {
+                    viewModel.deleteExpenseGroup(gid)
+                    itemToDelete = null; deleteFromCard = false
+                    notifyUndo("Compra dividida excluída")
+                }
             }
         )
     }
@@ -969,39 +1101,6 @@ fun HomeScreen(
             onUpdatePerson = { person -> viewModel.updatePerson(person) },
             onDeletePerson = { person ->
                 viewModel.deletePerson(person)
-            }
-        )
-    }
-
-    // BottomSheet: Entrada Rápida via IA
-    QuickAiEntryBottomSheet(
-        isVisible = isAiBottomSheetVisible,
-        isLoading = isAiLoading,
-        errorMessage = aiError,
-        onDismiss = { viewModel.closeAiBottomSheet() },
-        onSubmitPrompt = { prompt ->
-            viewModel.processAiPrompt(prompt)
-        }
-    )
-
-    // Dialog: Confirmação da Despesa da IA
-    if (showAiConfirmationDialog && pendingAiExpense != null) {
-        AiExpenseConfirmationDialog(
-            initialData = pendingAiExpense!!,
-            currentYear = selectedYear,
-            currentMonth = selectedMonth,
-            onDismiss = { viewModel.dismissAiConfirmationDialog() },
-            onConfirm = { description, totalAmount, installments, targetPerson, startYear, startMonth, markPastAsPaid ->
-                viewModel.confirmAndSaveAiExpense(
-                    description = description,
-                    totalAmount = totalAmount,
-                    installments = installments,
-                    personName = targetPerson,
-                    startYear = startYear,
-                    startMonth = startMonth,
-                    markPastAsPaid = markPastAsPaid
-                )
-                notify("Lançamento da IA salvo")
             }
         )
     }
@@ -1056,3 +1155,21 @@ private fun TabHeader(title: String, subtitle: String) {
         )
     }
 }
+
+private val coachTips = listOf(
+    com.example.ui.components.CoachTip(
+        "cards",
+        "Seus cartões ficam aqui no canto",
+        "Arraste a tela para o lado, ou toque neles, para abrir o Cartão."
+    ),
+    com.example.ui.components.CoachTip(
+        "swipe_paid",
+        "Recebeu o mês inteiro?",
+        "Deslize a pessoa para a esquerda para marcar o mês dela como pago. Tocando nela, você vê os detalhes."
+    ),
+    com.example.ui.components.CoachTip(
+        "card_open",
+        "Um cartão para cada pessoa",
+        "Toque no cartão para ver as compras. Os botões de baixo lançam uma compra, recebem e cobram."
+    )
+)

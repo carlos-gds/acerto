@@ -45,6 +45,7 @@ object BackupSerializer {
                 put("otherShareAmount", expense.otherShareAmount)
                 put("notes", expense.notes)
                 put("createdAt", expense.createdAt)
+                expense.groupId?.let { put("groupId", it) }
             }
             expensesArray.put(eObj)
         }
@@ -134,7 +135,8 @@ object BackupSerializer {
                     myShareAmount = eObj.optDouble("myShareAmount", 0.0),
                     otherShareAmount = eObj.optDouble("otherShareAmount", 0.0),
                     notes = eObj.optString("notes", ""),
-                    createdAt = eObj.optLong("createdAt", System.currentTimeMillis())
+                    createdAt = eObj.optLong("createdAt", System.currentTimeMillis()),
+                    groupId = if (eObj.has("groupId") && !eObj.isNull("groupId")) eObj.getLong("groupId") else null
                 )
             )
         }

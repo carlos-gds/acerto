@@ -10,9 +10,7 @@ import com.example.data.model.Expense
 import com.example.data.model.ExpenseType
 import com.example.data.model.InstallmentItem
 import com.example.data.model.Person
-import com.example.data.model.QuickExpenseAiResponse
 import com.example.data.repository.FinanceRepository
-import com.example.data.service.GeminiExpenseParser
 import com.example.util.Money
 import android.net.Uri
 import com.example.data.backup.BackupPayload
@@ -64,7 +62,11 @@ data class CardPurchaseProgress(
     val remainingInstallmentsCount: Int,
     val installmentAmount: Double,
     val remainingAmount: Double,
-    val progress: Float
+    val progress: Float,
+    /** Compra dividida: com quem mais ela é dividida (vazio = só desta pessoa). */
+    val groupWith: List<String> = emptyList(),
+    /** Compra dividida: valor da compra inteira (soma das partes). */
+    val groupTotal: Double? = null
 )
 
 data class MonthlyHistorySummary(
@@ -272,6 +274,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     ) { expenses, installments, people ->
         val peopleMap = people.associateBy { it.id }
         val cardExpenses = expenses.filter { it.type == ExpenseType.CARD_PURCHASE }
+        val groups = cardExpenses.filter { it.groupId != null }.groupBy { it.groupId }
 
         cardExpenses.mapNotNull { expense ->
             val expenseInstallments = installments.filter { it.expenseId == expense.id }
@@ -297,7 +300,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 remainingInstallmentsCount = remainingCount,
                 installmentAmount = installmentAmount,
                 remainingAmount = remainingAmount,
-                progress = progress
+                progress = progress,
+                groupWith = expense.groupId?.let { gid ->
+                    groups[gid].orEmpty().filter { it.id != expense.id }.mapNotNull { peopleMap[it.personId]?.name }
+                }.orEmpty(),
+                groupTotal = expense.groupId?.let { gid ->
+                    groups[gid]?.takeIf { it.size > 1 }?.sumOf { Money.toReal(it.totalAmount) }
+                }
             )
         }.sortedBy { it.remainingInstallmentsCount == 0 }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -401,6 +410,59 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** Compra dividida entre várias pessoas: uma parte para cada uma, todas ligadas. */
+    fun addCardPurchaseGroup(
+        title: String,
+        shares: List<Pair<Person, Double>>,
+        totalInstallments: Int,
+        startYear: Int,
+        startMonth: Int,
+        notes: String = "",
+        markPastInstallmentsAsPaid: Boolean = false
+    ) {
+        viewModelScope.launch {
+            repository.addCardPurchaseGroup(
+                title = title,
+                shares = shares,
+                totalInstallments = totalInstallments,
+                startYear = startYear,
+                startMonth = startMonth,
+                notes = notes,
+                markPastInstallmentsAsPaid = markPastInstallmentsAsPaid,
+                referenceYear = _selectedYear.value,
+                referenceMonth = _selectedMonth.value
+            )
+        }
+    }
+
+    /**
+     * Edita a compra dividida inteira: mesmo nome, parcelas e primeira parcela para todas
+     * as partes, cada uma com o novo valor dela. Pagamentos já marcados continuam.
+     */
+    fun updateCardPurchaseGroup(
+        parts: List<Triple<Long, Person, Double>>,
+        newTitle: String,
+        newTotalInstallments: Int,
+        startYear: Int,
+        startMonth: Int
+    ) {
+        viewModelScope.launch {
+            parts.forEach { (expenseId, person, amount) ->
+                repository.updateExpenseDetails(
+                    expenseId = expenseId,
+                    newTitle = newTitle,
+                    newTotalAmount = amount,
+                    newPerson = person,
+                    newTotalInstallments = newTotalInstallments,
+                    startYear = startYear,
+                    startMonth = startMonth
+                )
+            }
+        }
+    }
+
+    suspend fun getExpensesByGroupId(groupId: Long): List<Expense> = repository.getExpensesByGroupId(groupId)
+
     fun addSharedBill(
         title: String,
         totalAmount: Double,
@@ -454,11 +516,11 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /** Última exclusão, para o botão "Desfazer" do aviso. */
-    private var lastDeleted: FinanceRepository.ExpenseSnapshot? = null
+    private var lastDeleted: List<FinanceRepository.ExpenseSnapshot> = emptyList()
 
     fun deleteExpense(expenseId: Long) {
         viewModelScope.launch {
-            lastDeleted = repository.snapshotExpense(expenseId)
+            lastDeleted = listOfNotNull(repository.snapshotExpense(expenseId))
             repository.deleteExpense(expenseId)
         }
     }
@@ -467,16 +529,25 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val expenseId = monthlyInstallments.value.firstOrNull { it.id == installmentId }?.expenseId
                 ?: repository.getInstallmentExpenseId(installmentId)
-            lastDeleted = expenseId?.let { repository.snapshotExpense(it) }
+            lastDeleted = listOfNotNull(expenseId?.let { repository.snapshotExpense(it) })
             repository.deleteSingleInstallment(installmentId)
+        }
+    }
+
+    /** Exclui a compra dividida inteira (todas as partes), com "Desfazer". */
+    fun deleteExpenseGroup(groupId: Long) {
+        viewModelScope.launch {
+            val parts = repository.getExpensesByGroupId(groupId)
+            lastDeleted = parts.mapNotNull { repository.snapshotExpense(it.id) }
+            parts.forEach { repository.deleteExpense(it.id) }
         }
     }
 
     /** Desfaz a última exclusão (compra inteira ou parcela). */
     fun undoLastDelete() {
-        val snapshot = lastDeleted ?: return
-        lastDeleted = null
-        viewModelScope.launch { repository.restoreExpense(snapshot) }
+        val snapshots = lastDeleted.ifEmpty { return }
+        lastDeleted = emptyList()
+        viewModelScope.launch { snapshots.forEach { repository.restoreExpense(it) } }
     }
 
     fun updateExpense(
@@ -599,87 +670,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         _detailExpandedCardStates.value = _detailExpandedCardStates.value + (personId to expanded)
     }
 
-    // Quick AI Entry with Gemini
-    private val geminiParser = GeminiExpenseParser()
-
-    private val _isAiBottomSheetVisible = MutableStateFlow(false)
-    val isAiBottomSheetVisible: StateFlow<Boolean> = _isAiBottomSheetVisible.asStateFlow()
-
-    private val _isAiLoading = MutableStateFlow(false)
-    val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
-
-    private val _aiError = MutableStateFlow<String?>(null)
-    val aiError: StateFlow<String?> = _aiError.asStateFlow()
-
-    private val _pendingAiExpense = MutableStateFlow<QuickExpenseAiResponse?>(null)
-    val pendingAiExpense: StateFlow<QuickExpenseAiResponse?> = _pendingAiExpense.asStateFlow()
-
-    private val _showAiConfirmationDialog = MutableStateFlow(false)
-    val showAiConfirmationDialog: StateFlow<Boolean> = _showAiConfirmationDialog.asStateFlow()
-
-    fun openAiBottomSheet() {
-        _aiError.value = null
-        _isAiBottomSheetVisible.value = true
-    }
-
-    fun closeAiBottomSheet() {
-        _isAiBottomSheetVisible.value = false
-    }
-
-    fun dismissAiConfirmationDialog() {
-        _showAiConfirmationDialog.value = false
-        _pendingAiExpense.value = null
-    }
-
-    fun processAiPrompt(prompt: String) {
-        if (prompt.isBlank()) return
-        viewModelScope.launch {
-            _isAiLoading.value = true
-            _aiError.value = null
-            val result = geminiParser.parseExpensePrompt(
-                prompt = prompt,
-                currentYear = _selectedYear.value,
-                currentMonth = _selectedMonth.value
-            )
-            _isAiLoading.value = false
-            result.onSuccess { parsed ->
-                _pendingAiExpense.value = parsed
-                _isAiBottomSheetVisible.value = false
-                _showAiConfirmationDialog.value = true
-            }.onFailure { error ->
-                _aiError.value = error.message ?: "Erro ao processar mensagem com IA."
-            }
-        }
-    }
-
-    fun confirmAndSaveAiExpense(
-        description: String,
-        totalAmount: Double,
-        installments: Int,
-        personName: String,
-        startYear: Int = _selectedYear.value,
-        startMonth: Int = _selectedMonth.value,
-        markPastAsPaid: Boolean = false
-    ) {
-        viewModelScope.launch {
-            val person = repository.findOrCreatePerson(personName)
-            repository.addCardPurchase(
-                title = description,
-                totalAmount = totalAmount,
-                person = person,
-                totalInstallments = installments,
-                startYear = startYear,
-                startMonth = startMonth,
-                notes = "Lançamento Rápido via IA",
-                markPastInstallmentsAsPaid = markPastAsPaid,
-                referenceYear = _selectedYear.value,
-                referenceMonth = _selectedMonth.value
-            )
-            _showAiConfirmationDialog.value = false
-            _pendingAiExpense.value = null
-        }
-    }
-
     // ==========================================
     // BACKUP & RESTAURAÇÃO DE DADOS
     // ==========================================
@@ -719,6 +709,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                     outputStream.flush()
                 } ?: throw IllegalStateException("Não foi possível abrir o arquivo para escrita.")
 
+                com.example.ui.components.BackupReminder.markBackedUp(getApplication())
                 _backupUiState.value = BackupUiState.Success(
                     "Backup exportado com sucesso! Contém ${payload.people.size} pessoas, ${payload.expenses.size} despesas e ${payload.installments.size} parcelas."
                 )

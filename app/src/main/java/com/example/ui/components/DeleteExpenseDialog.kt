@@ -44,11 +44,21 @@ fun DeleteExpenseDialog(
     item: InstallmentItem,
     isPrivacyMode: Boolean = false,
     onDismiss: () -> Unit,
-    onDeleteSingleInstallment: () -> Unit,
-    onDeleteAllInstallments: () -> Unit
+    /** null quando não faz sentido apagar só uma parcela (lixeira do Cartão). */
+    onDeleteSingleInstallment: (() -> Unit)?,
+    onDeleteAllInstallments: () -> Unit,
+    /** Compra dividida: com quem mais ela é dividida. */
+    groupWith: List<String> = emptyList(),
+    /** Compra dividida: apagar todas as partes. */
+    onDeleteGroup: (() -> Unit)? = null
 ) {
     val liquid = LocalLiquidGlassColors.current
-    val isMultiInstallment = item.totalInstallments > 1
+    val isGroup = groupWith.isNotEmpty() && onDeleteGroup != null
+    if (isGroup) {
+        DeleteGroupDialog(item, groupWith, onDismiss, onDeleteSingleInstallment, onDeleteAllInstallments, onDeleteGroup!!)
+        return
+    }
+    val isMultiInstallment = item.totalInstallments > 1 && onDeleteSingleInstallment != null
 
     AlertDialog(
         modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
@@ -107,7 +117,7 @@ fun DeleteExpenseDialog(
 
                     // Option 2: Excluir apenas esta parcela
                     OutlinedButton(
-                        onClick = onDeleteSingleInstallment,
+                        onClick = { onDeleteSingleInstallment?.invoke() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("delete_single_installment_btn"),
@@ -150,5 +160,66 @@ fun DeleteExpenseDialog(
             }
         },
         dismissButton = null
+    )
+}
+
+/** Compra dividida: apagar a compra inteira (todas as pessoas), só a parte desta pessoa ou só esta parcela. */
+@Composable
+private fun DeleteGroupDialog(
+    item: InstallmentItem,
+    groupWith: List<String>,
+    onDismiss: () -> Unit,
+    onDeleteSingleInstallment: (() -> Unit)?,
+    onDeletePart: () -> Unit,
+    onDeleteGroup: () -> Unit
+) {
+    val liquid = LocalLiquidGlassColors.current
+    val everyone = (listOf(item.personName) + groupWith).let { names ->
+        if (names.size <= 1) names.joinToString() else names.dropLast(1).joinToString(", ") + " e " + names.last()
+    }
+    AlertDialog(
+        modifier = Modifier.liquidDialogEnter().border(1.dp, liquid.specularBorder, LiquidShapes.cardLarge),
+        onDismissRequest = onDismiss,
+        containerColor = liquidDialogSurface(),
+        shape = LiquidShapes.cardLarge,
+        icon = {
+            Icon(Icons.Default.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
+        },
+        title = {
+            LiquidDialogBlur()
+            Text("Excluir compra dividida", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = liquid.textPrimary)
+        },
+        text = {
+            Text(
+                "\"${item.expenseTitle}\" está dividida entre $everyone.\n\nO que você quer excluir?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = liquid.textSecondary
+            )
+        },
+        confirmButton = {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onDeleteGroup,
+                    modifier = Modifier.fillMaxWidth().testTag("delete_group_btn"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("A compra inteira ($everyone)") }
+                OutlinedButton(
+                    onClick = onDeletePart,
+                    modifier = Modifier.fillMaxWidth().testTag("delete_part_btn"),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("Só a parte de ${item.personName}", color = liquid.textPrimary) }
+                if (onDeleteSingleInstallment != null && item.totalInstallments > 1) {
+                    OutlinedButton(
+                        onClick = onDeleteSingleInstallment,
+                        modifier = Modifier.fillMaxWidth().testTag("delete_single_installment_btn"),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("Só esta parcela de ${item.personName} (${item.installmentNumber}ª)", color = liquid.textPrimary) }
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Cancelar", color = liquid.textSecondary)
+                }
+            }
+        }
     )
 }

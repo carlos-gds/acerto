@@ -30,3 +30,9 @@ metadata.json
 
 # Registro local das respostas do assistente (não versionar)
 claude-respostas.txt
+
+# Chaves de assinatura e o caminho delas (ficam fora do Git)
+keystore.properties
+*.jks
+*.keystore
+*lineage*.bin

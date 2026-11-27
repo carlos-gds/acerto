@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -196,12 +197,27 @@ fun SettingsScreen(
         }
 
         SettingsGroup(title = "Dados e segurança") {
+            val backup = com.example.ui.components.rememberBackupReminderState()
             SettingsRow(
                 icon = Icons.Default.Security,
                 title = "Backup e segurança",
-                subtitle = "Exportar ou restaurar seus dados em JSON",
+                subtitle = "Último backup: " + com.example.ui.components.BackupReminder.lastBackupLabel(System.currentTimeMillis(), backup.lastAt),
                 testTag = "top_bar_backup_button",
                 onClick = onBackupClick
+            )
+        }
+
+        SettingsGroup(title = "Ajuda") {
+            val context = LocalContext.current
+            SettingsRow(
+                icon = Icons.Default.Lightbulb,
+                title = "Ver as dicas de novo",
+                subtitle = "As dicas das telas voltam a aparecer, uma de cada vez",
+                testTag = "guide_reset",
+                onClick = {
+                    com.example.ui.components.GuideStore.resetTips(context)
+                    onBack?.invoke()
+                }
             )
         }
     }
@@ -413,7 +429,7 @@ private fun PixKeySetting() {
 }
 
 /** Ordem de entrada dos grupos de Ajustes (para o escalonamento). */
-private val SettingsGroupOrder = listOf("Aparência e privacidade", "Segurança e lembretes", "Pessoas", "Cobrança", "Dados e segurança")
+private val SettingsGroupOrder = listOf("Aparência e privacidade", "Segurança e lembretes", "Pessoas", "Cobrança", "Dados e segurança", "Ajuda")
 
 /** Bloquear o app com a digital/rosto ou a senha do celular. */
 @Composable

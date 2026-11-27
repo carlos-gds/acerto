@@ -38,6 +38,9 @@ interface ExpenseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpenses(expenses: List<Expense>)
 
+    @Query("SELECT * FROM expenses WHERE groupId = :groupId ORDER BY id")
+    suspend fun getExpensesByGroupId(groupId: Long): List<Expense>
+
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun deleteExpenseById(id: Long)
 

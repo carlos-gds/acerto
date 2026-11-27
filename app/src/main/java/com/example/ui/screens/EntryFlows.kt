@@ -102,6 +102,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.BillParticipantShare
+import com.example.data.model.Expense
+import com.example.data.model.ExpenseType
+import com.example.data.model.InstallmentItem
 import com.example.data.model.MY_PERSON_ID
 import com.example.data.model.Person
 import com.example.ui.components.NoirRoundButton
@@ -117,12 +120,14 @@ import com.example.ui.theme.LiquidLightTokens
 import com.example.ui.theme.LocalLiquidGlassColors
 import com.example.util.Calculator
 import com.example.util.CurrencyFormatter
+import com.example.util.Money
 import kotlin.math.abs
 
 /*
  * Lançamentos em etapas, no estilo da referência:
  *  - Nova compra:   Quem comprou (grade escura) → Valor e parcelas (teclado) → Detalhes → sucesso
  *  - Dividir conta: Valor (teclado) → Com quem (grade escura) → Detalhes → sucesso
+ *  - Editar:        abre no resumo; tocar no valor abre o teclado, na pessoa a grade
  * A folha branca sobe por cima da grade; entre as etapas da folha o conteúdo
  * desliza para o lado (para a frente ou para trás).
  */
@@ -134,7 +139,7 @@ private val Line = Color(0xFFE4E4E7)
 
 /* =========================== Nova compra =========================== */
 
-private enum class PurchaseStep { WHO, AMOUNT, DETAILS, DONE }
+private enum class PurchaseStep { WHO, AMOUNT, DETAILS, SPLIT_WHO, DONE }
 
 @Composable
 fun NewPurchaseFlow(
@@ -142,10 +147,11 @@ fun NewPurchaseFlow(
     currentYear: Int,
     currentMonth: Int,
     onAddPerson: () -> Unit,
+    /** shares: quanto da compra é de cada pessoa (uma só, ou várias numa compra dividida). */
     onConfirm: (
         title: String,
         totalAmount: Double,
-        person: Person,
+        shares: List<Pair<Person, Double>>,
         totalInstallments: Int,
         startYear: Int,
         startMonth: Int,
@@ -158,6 +164,10 @@ fun NewPurchaseFlow(
 ) {
     var step by rememberSaveable { mutableStateOf(if (initialPersonId != null) PurchaseStep.AMOUNT else PurchaseStep.WHO) }
     var personId by rememberSaveable { mutableStateOf(initialPersonId) }
+    // quem mais divide a compra (além de personId), em ordem de escolha
+    var extraIds by rememberSaveable { mutableStateOf("") }
+    var splitEqual by rememberSaveable { mutableStateOf(true) }
+    val perMonth = remember { mutableStateMapOf<Long, Long>() }
     var expr by rememberSaveable { mutableStateOf("") }
     var installments by rememberSaveable { mutableIntStateOf(1) }
     var title by rememberSaveable { mutableStateOf("") }
@@ -167,9 +177,15 @@ fun NewPurchaseFlow(
     var markPast by rememberSaveable { mutableStateOf(true) }
     val person = people.firstOrNull { it.id == personId }
     val total = Calculator.evaluate(expr) ?: 0.0
+    val extras = extraIds.split(',').mapNotNull { it.toLongOrNull() }.filter { it != personId }
+    val members = listOfNotNull(person) + extras.mapNotNull { id -> people.firstOrNull { it.id == id } }
+    val totalCents = Math.round(total * 100)
+    val split = members.size > 1
+    val splitOk = !split || splitEqual || splitMatches(totalCents, installments, members.map { it.id }, perMonth)
 
     BackHandler {
         step = when (step) {
+            PurchaseStep.SPLIT_WHO -> PurchaseStep.DETAILS
             PurchaseStep.DETAILS -> PurchaseStep.AMOUNT
             PurchaseStep.AMOUNT -> PurchaseStep.WHO
             else -> { onClose(); step }
@@ -180,23 +196,80 @@ fun NewPurchaseFlow(
         sheetVisible = step == PurchaseStep.AMOUNT || step == PurchaseStep.DETAILS,
         done = step == PurchaseStep.DONE,
         background = {
-            PeopleGrid(
-                title = "Quem comprou?",
-                subtitle = "Compra no seu cartão",
-                people = people,
-                isSelected = { it == personId },
-                multi = false,
-                onTap = { id -> personId = id; step = PurchaseStep.AMOUNT },
-                onAddPerson = onAddPerson,
-                leading = { NoirRoundButton(icon = Icons.Default.Close, contentDescription = "Fechar", onClick = onClose, modifier = Modifier.testTag("purchase_close")) },
-                tagPrefix = "purchase_person_"
-            )
+            if (step == PurchaseStep.SPLIT_WHO) {
+                PeopleGrid(
+                    title = "Dividir com quem?",
+                    subtitle = "Cada pessoa paga a parte dela das parcelas",
+                    people = people,
+                    isSelected = { id -> members.any { it.id == id } },
+                    multi = true,
+                    onTap = { id ->
+                        val ids = members.map { it.id }
+                        val next = if (id in ids) (if (ids.size > 1) ids - id else ids) else ids + id
+                        personId = next.first()
+                        extraIds = next.drop(1).joinToString(",")
+                        perMonth.clear()
+                        splitEqual = true
+                    },
+                    onAddPerson = onAddPerson,
+                    leading = {
+                        NoirRoundButton(icon = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", onClick = { step = PurchaseStep.DETAILS })
+                    },
+                    tagPrefix = "purchase_split_person_",
+                    bottom = {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                                .background(Color.White)
+                                .navigationBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                        ) {
+                            PrimaryPill(
+                                text = if (members.size > 1) "Dividir entre ${members.size}" else "Continuar",
+                                enabled = true,
+                                onClick = { step = PurchaseStep.DETAILS },
+                                tag = "purchase_split_done"
+                            )
+                        }
+                    }
+                )
+            } else {
+                PeopleGrid(
+                    title = "Quem comprou?",
+                    subtitle = "Compra no seu cartão",
+                    people = people,
+                    isSelected = { it == personId },
+                    multi = false,
+                    onTap = { id -> personId = id; extraIds = ""; step = PurchaseStep.AMOUNT },
+                    onAddPerson = onAddPerson,
+                    leading = { NoirRoundButton(icon = Icons.Default.Close, contentDescription = "Fechar", onClick = onClose, modifier = Modifier.testTag("purchase_close")) },
+                    tagPrefix = "purchase_person_"
+                )
+            }
         },
         sheetStep = step,
         sheet = { s ->
             when (s) {
                 PurchaseStep.DETAILS -> PurchaseDetails(
                     person = person,
+                    members = members,
+                    onSplitPeople = { step = PurchaseStep.SPLIT_WHO },
+                    canSave = splitOk,
+                    split = {
+                        SplitSharesBlock(
+                            members = members,
+                            totalCents = totalCents,
+                            installments = installments,
+                            equal = splitEqual,
+                            onEqual = { e ->
+                                if (!e && perMonth.isEmpty()) prefillPerMonth(totalCents, installments, members.map { it.id }, perMonth)
+                                splitEqual = e
+                            },
+                            perMonth = perMonth,
+                            onChangePeople = { step = PurchaseStep.SPLIT_WHO }
+                        )
+                    },
                     total = total,
                     installments = installments,
                     title = title, onTitle = { title = it },
@@ -207,8 +280,10 @@ fun NewPurchaseFlow(
                     markPast = markPast, onMarkPast = { markPast = it },
                     onBack = { step = PurchaseStep.AMOUNT },
                     onSave = {
-                        val p = person ?: return@PurchaseDetails
-                        onConfirm(title.trim(), total, p, installments, startYear, startMonth, notes.trim(), markPast)
+                        if (members.isEmpty()) return@PurchaseDetails
+                        val shares = if (!split) listOf(members.first() to total)
+                        else members.zip(splitTotals(totalCents, installments, members.map { it.id }, splitEqual, perMonth)) { m, c -> m to c / 100.0 }
+                        onConfirm(title.trim(), total, shares, installments, startYear, startMonth, notes.trim(), markPast)
                         step = PurchaseStep.DONE
                     }
                 )
@@ -231,7 +306,11 @@ fun NewPurchaseFlow(
                 amount = total,
                 name = person?.name.orEmpty(),
                 onClose = onClose,
-                subtitle = if (installments > 1) "${installments}x · compra de ${person?.name.orEmpty()}" else "Compra de ${person?.name.orEmpty()}"
+                subtitle = when {
+                    split -> "Dividida entre " + members.joinToString(", ") { it.name }.replaceLastComma()
+                    installments > 1 -> "${installments}x · compra de ${person?.name.orEmpty()}"
+                    else -> "Compra de ${person?.name.orEmpty()}"
+                }
             )
         }
     )
@@ -283,6 +362,10 @@ private fun InstallmentPicker(total: Double, selected: Int, onSelect: (Int) -> U
 @Composable
 private fun PurchaseDetails(
     person: Person?,
+    members: List<Person>,
+    onSplitPeople: () -> Unit,
+    canSave: Boolean,
+    split: @Composable () -> Unit,
     total: Double,
     installments: Int,
     title: String,
@@ -302,8 +385,8 @@ private fun PurchaseDetails(
     val retro = startYear * 12 + startMonth < currentYear * 12 + currentMonth
     DetailsColumn(heading = "O que comprou?", onBack = onBack) {
         SummaryCard(
-            person = person,
-            title = person?.name ?: "",
+            person = if (members.size > 1) null else person,
+            title = if (members.size > 1) members.joinToString(", ") { it.name }.replaceLastComma() else person?.name ?: "",
             line = CurrencyFormatter.format(total) + if (installments > 1) " · ${installments}x de ${CurrencyFormatter.format(total / installments)}" else " · à vista",
             onClick = onBack
         )
@@ -313,6 +396,7 @@ private fun PurchaseDetails(
             placeholder = "Ex: Tênis, celular, mercado",
             tag = "purchase_title"
         )
+        if (members.size > 1) split() else AddSplitRow(onClick = onSplitPeople)
         MonthStepper(label = "Primeira parcela", year = startYear, month = startMonth, onChange = onMonth)
         if (retro) {
             Row(
@@ -345,7 +429,144 @@ private fun PurchaseDetails(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         )
-        SaveSwipe(enabled = title.isNotBlank(), onSave = onSave)
+        SaveSwipe(enabled = title.isNotBlank() && canSave, onSave = onSave)
+    }
+}
+
+/* ---------- Compra dividida: a parte de cada pessoa, por mês ---------- */
+
+/** Parcela da compra inteira, em centavos. */
+private fun installmentCents(totalCents: Long, installments: Int): Long =
+    if (installments <= 0) 0L else Math.round(totalCents.toDouble() / installments)
+
+/** Personalizado começa igual: a parcela dividida entre todos (o resto fica com o primeiro). */
+private fun prefillPerMonth(totalCents: Long, installments: Int, ids: List<Long>, perMonth: MutableMap<Long, Long>) {
+    if (ids.isEmpty()) return
+    val inst = installmentCents(totalCents, installments)
+    val base = inst / ids.size
+    ids.forEachIndexed { i, id -> perMonth[id] = if (i == 0) inst - base * (ids.size - 1) else base }
+}
+
+/** As partes por mês somam a parcela (tolerância de 1 centavo de arredondamento)? */
+private fun splitMatches(totalCents: Long, installments: Int, ids: List<Long>, perMonth: Map<Long, Long>): Boolean {
+    if (ids.any { (perMonth[it] ?: 0L) <= 0L }) return false
+    return abs(ids.sumOf { perMonth[it] ?: 0L } - installmentCents(totalCents, installments)) <= 1
+}
+
+/**
+ * Total da compra que fica com cada pessoa, em centavos, na ordem de [ids].
+ * Igual: o total dividido por todos. Personalizado: a parte do mês × parcelas.
+ * A diferença de arredondamento fica com o primeiro, para a soma bater com o total.
+ */
+private fun splitTotals(totalCents: Long, installments: Int, ids: List<Long>, equal: Boolean, perMonth: Map<Long, Long>): List<Long> {
+    if (ids.isEmpty()) return emptyList()
+    val raw = if (equal) {
+        val base = totalCents / ids.size
+        ids.map { base }
+    } else {
+        ids.map { (perMonth[it] ?: 0L) * installments.coerceAtLeast(1) }
+    }
+    val diff = totalCents - raw.sum()
+    return raw.mapIndexed { i, c -> if (i == 0) c + diff else c }
+}
+
+/** "+ Dividir com mais alguém" (abre a grade para escolher quem mais divide). */
+@Composable
+private fun AddSplitRow(onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Soft)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .testTag("purchase_split")
+    ) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = Ink, modifier = Modifier.size(20.dp))
+        }
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text("Dividir com mais alguém", style = MaterialTheme.typography.titleSmall, color = Ink)
+            Text("Cada pessoa paga a parte dela de cada parcela", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        }
+    }
+}
+
+/** Bloco da compra dividida: Igual / Personalizado e quanto cada pessoa paga por mês. */
+@Composable
+private fun SplitSharesBlock(
+    members: List<Person>,
+    totalCents: Long,
+    installments: Int,
+    equal: Boolean,
+    onEqual: (Boolean) -> Unit,
+    perMonth: MutableMap<Long, Long>,
+    onChangePeople: (() -> Unit)?
+) {
+    val inst = installmentCents(totalCents, installments)
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, Line, RoundedCornerShape(16.dp))
+            .padding(12.dp)
+            .testTag("purchase_split_block")
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                Text("Dividida entre ${members.size}", style = MaterialTheme.typography.titleSmall, color = Ink)
+                Text(
+                    if (installments > 1) "Parcela de R$ ${Calculator.formatCents(inst)} por mês" else "Compra de R$ ${Calculator.formatCents(totalCents)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted
+                )
+            }
+            if (onChangePeople != null) {
+                Text(
+                    "Pessoas",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Ink,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Soft)
+                        .clickable(role = Role.Button, onClickLabel = "Mudar quem divide", onClick = onChangePeople)
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .testTag("purchase_split_people")
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            ModeChip("Igual", selected = equal, onClick = { onEqual(true) }, modifier = Modifier.testTag("purchase_split_equal"))
+            ModeChip("Personalizado", selected = !equal, onClick = { onEqual(false) }, modifier = Modifier.testTag("purchase_split_custom"))
+        }
+        val equalShare = if (members.isEmpty()) 0.0 else inst / 100.0 / members.size
+        members.forEach { m ->
+            ShareLine(
+                name = m.name,
+                person = m,
+                equal = equal,
+                equalShare = equalShare,
+                cents = perMonth[m.id] ?: 0L,
+                onCents = { perMonth[m.id] = it },
+                tag = "purchase_share_${m.id}",
+                suffix = if (installments > 1) "por mês" else null
+            )
+        }
+        if (!equal) {
+            val diff = inst - members.sumOf { perMonth[it.id] ?: 0L }
+            Text(
+                when {
+                    abs(diff) <= 1 -> "Bate com a parcela ✓"
+                    diff > 0 -> "Faltam R$ ${Calculator.formatCents(diff)} na parcela"
+                    else -> "Passou R$ ${Calculator.formatCents(-diff)} da parcela"
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = if (abs(diff) <= 1) Color(0xFF15803D) else Color(0xFFB45309),
+                modifier = Modifier.align(Alignment.End).testTag("purchase_split_diff")
+            )
+        }
     }
 }
 
@@ -651,6 +872,458 @@ private fun String.replaceLastComma(): String {
     return if (i < 0) this else substring(0, i) + " e " + substring(i + 2)
 }
 
+/* =========================== Fatura do cartão =========================== */
+
+/** Folha com o teclado para informar o total da fatura do mês (a sua parte aparece embaixo). */
+@Composable
+fun FaturaAmountSheet(
+    monthName: String,
+    initialCents: Long?,
+    othersCents: Long,
+    onSave: (Long) -> Unit,
+    onClose: () -> Unit
+) {
+    var expr by rememberSaveable { mutableStateOf(initialCents?.takeIf { it > 0 }?.toString().orEmpty()) }
+    BackHandler { onClose() }
+    StatusBarIcons(lightIcons = true)
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).testTag("fatura_sheet")) {
+        CompositionLocalProvider(LocalLiquidGlassColors provides LiquidLightTokens) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                    .background(Color.White)
+                    .navigationBarsPadding()
+            ) {
+                Box(
+                    Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).width(36.dp).height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)).background(Color(0x22000000))
+                )
+                AmountStep(
+                    heading = "Fatura de $monthName",
+                    person = null,
+                    expr = expr,
+                    onExpr = { expr = it },
+                    onBack = onClose,
+                    backIsClose = true,
+                    tagPrefix = "fatura_",
+                    nextLabel = "Salvar",
+                    extra = { value ->
+                        val cents = Math.round(value * 100)
+                        Text(
+                            when {
+                                cents <= 0L -> "Valor total da fatura do cartão"
+                                cents < othersCents -> "Menor que as compras dos outros (R$ ${Calculator.formatCents(othersCents)})"
+                                else -> "Sua parte: R$ ${Calculator.formatCents(cents - othersCents)} · dos outros R$ ${Calculator.formatCents(othersCents)}"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (cents in 1 until othersCents) Color(0xFFB45309) else InkMuted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp).testTag("fatura_mine")
+                        )
+                    },
+                    onNext = { onSave(Math.round((Calculator.evaluate(expr) ?: 0.0) * 100)) }
+                )
+            }
+        }
+    }
+}
+
+/* =========================== Editar lançamentos =========================== */
+
+private enum class EditStep { WHO, AMOUNT, DETAILS, DONE }
+
+/**
+ * Editar compra no cartão, no mesmo estilo da Nova compra: abre direto no resumo
+ * (valor, nome, pessoa e primeira parcela). Tocar no valor abre o teclado com as
+ * parcelas; tocar na pessoa abre a grade escura. Deslize para salvar.
+ */
+@Composable
+fun EditPurchaseFlow(
+    item: InstallmentItem,
+    people: List<Person>,
+    onAddPerson: () -> Unit,
+    onConfirm: (
+        expenseId: Long,
+        title: String,
+        totalAmount: Double,
+        person: Person,
+        totalInstallments: Int,
+        startYear: Int,
+        startMonth: Int
+    ) -> Unit,
+    onClose: () -> Unit,
+    /** Compra dividida: todas as partes (a desta pessoa incluída). Vazio = compra solta. */
+    group: List<Expense> = emptyList(),
+    /** Salva a compra dividida inteira: (id da parte, pessoa, valor) de cada parte. */
+    onConfirmGroup: (parts: List<Triple<Long, Person, Double>>, title: String, totalInstallments: Int, startYear: Int, startMonth: Int) -> Unit = { _, _, _, _, _ -> }
+) {
+    val isGroup = group.size > 1
+    val initialTotal = when {
+        isGroup -> group.sumOf { Money.toReal(it.totalAmount) }
+        item.expenseType == ExpenseType.CARD_PURCHASE -> Money.toReal(item.amount * item.totalInstallments.toLong())
+        else -> Money.toReal(item.amount)
+    }
+    val groupMembers = group.mapNotNull { e -> people.firstOrNull { it.id == e.personId }?.let { e to it } }
+    val perMonth = remember {
+        mutableStateMapOf<Long, Long>().apply {
+            val n = item.totalInstallments.coerceAtLeast(1)
+            group.forEach { e -> put(e.personId, Math.round(e.totalAmount.toDouble() / n)) }
+        }
+    }
+    var splitEqual by rememberSaveable {
+        mutableStateOf(group.map { it.totalAmount }.let { t -> t.isEmpty() || (t.maxOrNull() ?: 0L) - (t.minOrNull() ?: 0L) <= t.size.toLong() })
+    }
+    val firstIdx = (item.year * 12 + (item.month - 1)) - (item.installmentNumber - 1)
+    var step by rememberSaveable { mutableStateOf(EditStep.DETAILS) }
+    var personId by rememberSaveable { mutableStateOf<Long?>(item.personId) }
+    var expr by rememberSaveable { mutableStateOf(Calculator.fromAmount(initialTotal)) }
+    var installments by rememberSaveable { mutableIntStateOf(item.totalInstallments.coerceIn(1, 24)) }
+    var title by rememberSaveable { mutableStateOf(item.expenseTitle) }
+    var startYear by rememberSaveable { mutableIntStateOf(firstIdx / 12) }
+    var startMonth by rememberSaveable { mutableIntStateOf(firstIdx % 12 + 1) }
+    val person = people.firstOrNull { it.id == personId }
+    val total = Calculator.evaluate(expr) ?: 0.0
+
+    BackHandler {
+        when (step) {
+            EditStep.WHO, EditStep.AMOUNT -> step = EditStep.DETAILS
+            else -> onClose()
+        }
+    }
+
+    FlowScaffold(
+        sheetVisible = step == EditStep.AMOUNT || step == EditStep.DETAILS,
+        done = step == EditStep.DONE,
+        background = {
+            PeopleGrid(
+                title = "Quem comprou?",
+                subtitle = "Trocar a pessoa da compra",
+                people = people,
+                isSelected = { it == personId },
+                multi = false,
+                onTap = { id -> personId = id; step = EditStep.DETAILS },
+                onAddPerson = onAddPerson,
+                leading = {
+                    NoirRoundButton(icon = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", onClick = { step = EditStep.DETAILS })
+                },
+                tagPrefix = "edit_person_"
+            )
+        },
+        sheetStep = step,
+        sheet = { s ->
+            when (s) {
+                EditStep.AMOUNT -> AmountStep(
+                    heading = "Valor da compra",
+                    person = person,
+                    expr = expr,
+                    onExpr = { expr = it },
+                    onBack = { step = EditStep.DETAILS },
+                    tagPrefix = "edit_",
+                    extra = { value ->
+                        InstallmentPicker(total = value, selected = installments, onSelect = { installments = it })
+                    },
+                    onNext = { step = EditStep.DETAILS }
+                )
+                else -> DetailsColumn(heading = if (isGroup) "Editar compra dividida" else "Editar compra", onBack = onClose, backIsClose = true) {
+                    val totalCents = Math.round(total * 100)
+                    val ids = groupMembers.map { it.second.id }
+                    SummaryCard(
+                        person = null,
+                        title = CurrencyFormatter.format(total),
+                        line = if (installments > 1) "${installments}x de ${CurrencyFormatter.format(total / installments)}" else "À vista",
+                        onClick = { step = EditStep.AMOUNT }
+                    )
+                    BigTextField(
+                        value = title,
+                        onValue = { title = it },
+                        placeholder = "Ex: Tênis, celular, mercado",
+                        tag = "edit_title",
+                        autoFocus = false
+                    )
+                    if (isGroup) {
+                        SplitSharesBlock(
+                            members = groupMembers.map { it.second },
+                            totalCents = totalCents,
+                            installments = installments,
+                            equal = splitEqual,
+                            onEqual = { e ->
+                                if (!e && !splitMatches(totalCents, installments, ids, perMonth)) prefillPerMonth(totalCents, installments, ids, perMonth)
+                                splitEqual = e
+                            },
+                            perMonth = perMonth,
+                            onChangePeople = null
+                        )
+                    } else {
+                        PersonRow(label = "Quem comprou", person = person, onClick = { step = EditStep.WHO })
+                    }
+                    MonthStepper(label = "Primeira parcela", year = startYear, month = startMonth, onChange = { y, m -> startYear = y; startMonth = m })
+                    val groupOk = !isGroup || splitEqual || splitMatches(totalCents, installments, ids, perMonth)
+                    SaveSwipe(enabled = title.isNotBlank() && total > 0.0 && (isGroup || person != null) && groupOk) {
+                        if (isGroup) {
+                            val totals = splitTotals(totalCents, installments, ids, splitEqual, perMonth)
+                            val parts = groupMembers.zip(totals) { (e, p), c -> Triple(e.id, p, c / 100.0) }
+                            onConfirmGroup(parts, title.trim(), installments, startYear, startMonth)
+                        } else {
+                            val p = person ?: return@SaveSwipe
+                            onConfirm(item.expenseId, title.trim(), total, p, installments, startYear, startMonth)
+                        }
+                        step = EditStep.DONE
+                    }
+                }
+            }
+        },
+        success = {
+            SuccessScreen(amount = total, name = person?.name.orEmpty(), onClose = onClose, subtitle = if (isGroup) "Compra dividida atualizada" else "Compra atualizada")
+        }
+    )
+}
+
+/**
+ * Editar conta dividida (você e mais uma pessoa), no estilo do Dividir conta:
+ * resumo com o valor, nome, com quem, divisão Igual/Personalizado e se a
+ * mudança vale para todos os meses ou só para a fatura aberta.
+ */
+@Composable
+fun EditSplitFlow(
+    item: InstallmentItem,
+    people: List<Person>,
+    selectedYear: Int,
+    selectedMonth: Int,
+    onLoadExpense: suspend (Long) -> Expense?,
+    onAddPerson: () -> Unit,
+    onConfirm: (
+        expenseId: Long,
+        newTitle: String,
+        newTotalAmount: Double,
+        newPerson: Person,
+        newMyShare: Double,
+        newOtherShare: Double,
+        updateAllMonths: Boolean
+    ) -> Unit,
+    onClose: () -> Unit
+) {
+    var step by rememberSaveable { mutableStateOf(EditStep.DETAILS) }
+    var loaded by rememberSaveable { mutableStateOf(false) }
+    var title by rememberSaveable { mutableStateOf(item.expenseTitle) }
+    var expr by rememberSaveable { mutableStateOf(Calculator.fromAmount(Money.toReal(item.amount) * 2.0)) }
+    var personId by rememberSaveable { mutableStateOf<Long?>(people.firstOrNull { it.id == item.personId }?.id ?: people.firstOrNull()?.id) }
+    var equal by rememberSaveable { mutableStateOf(true) }
+    var myCents by rememberSaveable { mutableStateOf(item.amount) }
+    var otherCents by rememberSaveable { mutableStateOf(item.amount) }
+    var updateAll by rememberSaveable { mutableStateOf(true) }
+
+    LaunchedEffect(item.expenseId) {
+        if (loaded) return@LaunchedEffect
+        val exp = onLoadExpense(item.expenseId)
+        if (exp != null) {
+            title = exp.title
+            val total = Money.toReal(exp.totalAmount)
+            expr = Calculator.fromAmount(total)
+            people.firstOrNull { it.id == exp.personId }?.let { personId = it.id }
+            val mine = if (exp.myShareAmount > 0) Money.toReal(exp.myShareAmount) else total / 2.0
+            val other = if (exp.otherShareAmount > 0) Money.toReal(exp.otherShareAmount) else total - mine
+            equal = abs(mine - other) < 0.05
+            myCents = Math.round(mine * 100)
+            otherCents = Math.round(other * 100)
+        }
+        loaded = true
+    }
+
+    val total = Calculator.evaluate(expr) ?: 0.0
+    val totalCents = Math.round(total * 100)
+    val person = people.firstOrNull { it.id == personId }
+    val myShare = if (equal) total / 2.0 else myCents / 100.0
+    val otherShare = if (equal) total / 2.0 else otherCents / 100.0
+    val valid = title.isNotBlank() && total > 0.0 && person != null && myShare >= 0.0 && otherShare >= 0.0 && (myShare > 0.0 || otherShare > 0.0)
+
+    BackHandler {
+        when (step) {
+            EditStep.WHO, EditStep.AMOUNT -> step = EditStep.DETAILS
+            else -> onClose()
+        }
+    }
+
+    FlowScaffold(
+        sheetVisible = step == EditStep.AMOUNT || step == EditStep.DETAILS,
+        done = step == EditStep.DONE,
+        background = {
+            PeopleGrid(
+                title = "Com quem dividir?",
+                subtitle = if (total > 0) "Conta de ${CurrencyFormatter.format(total)}" else null,
+                people = people,
+                isSelected = { it == personId },
+                multi = false,
+                onTap = { id -> personId = id; step = EditStep.DETAILS },
+                onAddPerson = onAddPerson,
+                leading = {
+                    NoirRoundButton(icon = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", onClick = { step = EditStep.DETAILS })
+                },
+                tagPrefix = "edit_split_person_"
+            )
+        },
+        sheetStep = step,
+        sheet = { s ->
+            when (s) {
+                EditStep.AMOUNT -> AmountStep(
+                    heading = "Valor da conta",
+                    person = person,
+                    expr = expr,
+                    onExpr = { expr = it },
+                    onBack = { step = EditStep.DETAILS },
+                    tagPrefix = "edit_split_",
+                    extra = { value ->
+                        Text(
+                            if (value > 0 && equal) "${CurrencyFormatter.format(value / 2)} para cada um" else "Valor total da conta",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = InkMuted
+                        )
+                    },
+                    onNext = { step = EditStep.DETAILS }
+                )
+                else -> DetailsColumn(heading = "Editar conta", onBack = onClose, backIsClose = true) {
+                    SummaryCard(
+                        person = null,
+                        title = CurrencyFormatter.format(total),
+                        line = "Entre você e ${person?.name ?: "—"}" +
+                            if (equal) " · ${CurrencyFormatter.format(total / 2)} cada" else " · valores personalizados",
+                        onClick = { step = EditStep.AMOUNT }
+                    )
+                    BigTextField(
+                        value = title,
+                        onValue = { title = it },
+                        placeholder = "Ex: Internet, luz, aluguel",
+                        tag = "edit_split_title",
+                        autoFocus = false
+                    )
+                    PersonRow(label = "Dividir com", person = person, onClick = { step = EditStep.WHO })
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, Line, RoundedCornerShape(16.dp)).padding(12.dp)
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                            ModeChip("Igual", selected = equal, onClick = { equal = true }, modifier = Modifier.testTag("edit_split_equal"))
+                            ModeChip(
+                                "Personalizado",
+                                selected = !equal,
+                                onClick = {
+                                    if (equal && myCents + otherCents <= 0L && totalCents > 0) {
+                                        myCents = totalCents / 2
+                                        otherCents = totalCents - myCents
+                                    }
+                                    equal = false
+                                },
+                                modifier = Modifier.testTag("edit_split_custom")
+                            )
+                        }
+                        ShareLine(name = "Você", person = null, equal = equal, equalShare = total / 2, cents = myCents, onCents = { myCents = it }, tag = "edit_split_mine")
+                        ShareLine(name = person?.name ?: "Outra pessoa", person = person, equal = equal, equalShare = total / 2, cents = otherCents, onCents = { otherCents = it }, tag = "edit_split_other")
+                        if (!equal) {
+                            val diff = totalCents - (myCents + otherCents)
+                            Text(
+                                when {
+                                    abs(diff) <= 10 -> "Bate com o total ✓"
+                                    diff > 0 -> "Faltam R$ ${Calculator.formatCents(diff)} para o total"
+                                    else -> "Passou R$ ${Calculator.formatCents(-diff)} do total"
+                                },
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (abs(diff) <= 10) Color(0xFF15803D) else Color(0xFFB45309),
+                                modifier = Modifier.align(Alignment.End)
+                            )
+                        }
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Soft)
+                            .clickable(role = Role.Switch) { updateAll = !updateAll }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Mudar em todos os meses", style = MaterialTheme.typography.titleSmall, color = Ink)
+                            Text(
+                                if (updateAll) "Todas as faturas desta conta"
+                                else "Só na fatura de ${CurrencyFormatter.getMonthShortName(selectedMonth).lowercase()}/$selectedYear",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InkMuted
+                            )
+                        }
+                        Switch(
+                            checked = updateAll,
+                            onCheckedChange = { updateAll = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White, checkedTrackColor = Ink,
+                                uncheckedThumbColor = InkMuted, uncheckedTrackColor = Line, uncheckedBorderColor = Line
+                            ),
+                            modifier = Modifier.testTag("edit_split_all_months")
+                        )
+                    }
+                    SaveSwipe(enabled = valid) {
+                        val p = person ?: return@SaveSwipe
+                        onConfirm(item.expenseId, title.trim(), total, p, myShare, otherShare, updateAll)
+                        step = EditStep.DONE
+                    }
+                }
+            }
+        },
+        success = {
+            SuccessScreen(amount = total, name = person?.name.orEmpty(), onClose = onClose, subtitle = "Conta atualizada")
+        }
+    )
+}
+
+/** "Quem comprou   (avatar) Pai   Trocar" — abre a grade de pessoas. */
+@Composable
+private fun PersonRow(label: String, person: Person?, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Soft)
+            .clickable(role = Role.Button, onClickLabel = "Trocar pessoa", onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .testTag("edit_person_row")
+    ) {
+        if (person != null) PersonAvatarBadge(name = person.name, colorHex = person.colorHex, avatar = person.avatar, size = 40.dp)
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+            Text(person?.name ?: "Escolher pessoa", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(
+            "Trocar",
+            style = MaterialTheme.typography.labelLarge,
+            color = Ink,
+            modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(horizontal = 14.dp, vertical = 6.dp)
+        )
+    }
+}
+
+/** Uma linha da divisão: avatar, nome e a parte (texto na divisão igual, campo no personalizado). */
+@Composable
+private fun ShareLine(name: String, person: Person?, equal: Boolean, equalShare: Double, cents: Long, onCents: (Long) -> Unit, tag: String, suffix: String? = null) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        if (person != null) PersonAvatarBadge(name = person.name, colorHex = person.colorHex, avatar = person.avatar, size = 36.dp)
+        else Box(Modifier.size(36.dp).clip(CircleShape).background(Soft), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Person, contentDescription = null, tint = Ink, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.bodyLarge, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (suffix != null) Text(suffix, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        }
+        if (equal) {
+            Text(CurrencyFormatter.format(equalShare), style = MaterialTheme.typography.bodyLarge, color = InkMuted)
+        } else {
+            CentsField(cents = cents, onCents = onCents, modifier = Modifier.width(132.dp).testTag(tag))
+        }
+    }
+}
+
 /* =========================== Peças comuns =========================== */
 
 /**
@@ -777,7 +1450,8 @@ private fun AmountStep(
     tagPrefix: String,
     extra: @Composable (Double) -> Unit,
     onNext: () -> Unit,
-    backIsClose: Boolean = false
+    backIsClose: Boolean = false,
+    nextLabel: String = "Continuar"
 ) {
     val haptics = LocalHapticFeedback.current
     var errorTick by remember { mutableIntStateOf(0) }
@@ -814,7 +1488,7 @@ private fun AmountStep(
             tagPrefix = "${tagPrefix}key_"
         )
         PrimaryPill(
-            text = "Continuar",
+            text = nextLabel,
             enabled = value > 0.0,
             onClick = onNext,
             tag = "${tagPrefix}next",
@@ -825,9 +1499,9 @@ private fun AmountStep(
 
 /** Coluna rolável das etapas de detalhes (sobe junto com o teclado do celular). */
 @Composable
-private fun DetailsColumn(heading: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun DetailsColumn(heading: String, onBack: () -> Unit, backIsClose: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().imePadding()) {
-        SheetTopBar(heading = heading, onBack = onBack)
+        SheetTopBar(heading = heading, onBack = onBack, backIsClose = backIsClose)
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val minH = maxHeight
             Column(
@@ -873,9 +1547,10 @@ private fun SummaryCard(person: Person?, title: String, line: String, onClick: (
 
 /** Campo de texto grande, sem borda, que já abre o teclado. */
 @Composable
-private fun BigTextField(value: String, onValue: (String) -> Unit, placeholder: String, tag: String) {
+private fun BigTextField(value: String, onValue: (String) -> Unit, placeholder: String, tag: String, autoFocus: Boolean = true) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
+        if (!autoFocus) return@LaunchedEffect
         kotlinx.coroutines.delay(AcertoMotion.SLOW.toLong()) // espera a folha assentar
         runCatching { focus.requestFocus() }
     }
